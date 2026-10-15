@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Shipment Tracker</title>
+<style>
+  :root{
+    --bg:#faf5ea;
+    --panel:#fffdf8;
+    --panel2:#faf0d8;
+    --border:#e6d5ae;
+    --text:#5c4a34;
+    --muted:#a68f6c;
+    --accent:#e0b04d;      /* pastel kuning/mustard */
+    --accent-soft:#f6e2a8;
+    --brown:#a9805a;       /* pastel coklat */
+    --brown-soft:#ecd9c2;
+    --green:#8fb98a;       /* pastel hijau */
+    --green-soft:#dcecd7;
+    --danger:#cf9484;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding:16px;
+    font-size:13px;
+  }
+  h1{
+    font-size:17px;
+    margin:0 0 2px 0;
+    font-weight:700;
+  }
+  .subtitle{
+    color:var(--muted);
+    font-size:11.5px;
+    margin-bottom:14px;
+  }
+  .layout{
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  .sidebar{
+    flex:0 0 250px;
+    min-width:220px;
+  }
+  .main{
+    flex:1 1 380px;
+    min-width:280px;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:12px;
+    margin-bottom:12px;
+    box-shadow:0 1px 2px rgba(160,130,80,.06);
+  }
+  .card h2{
+    font-size:12px;
+    margin:0 0 8px 0;
+    color:var(--brown);
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
+  label{
+    display:block;
+    font-size:11px;
+    color:var(--muted);
+    margin-bottom:3px;
+    margin-top:8px;
+  }
+  label:first-of-type{margin-top:0;}
+  input[type=text]{
+    width:100%;
+    background:#fffcf5;
+    border:1px solid var(--border);
+    border-radius:7px;
+    padding:6px 8px;
+    color:var(--text);
+    font-size:12px;
+    outline:none;
+  }
+  input[type=text]:focus{border-color:var(--accent);}
+  button{
+    cursor:pointer;
+    font-family:inherit;
+    border:none;
+  }
+  .btn-primary{
+    background:var(--accent);
+    color:#5c4520;
+    padding:7px 12px;
+    border-radius:7px;
+    font-size:12px;
+    font-weight:700;
+    width:100%;
+    margin-top:10px;
+  }
+  .btn-primary:hover{background:#d3a03c;}
+  .ship-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .ship-item{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:7px 9px;
+    cursor:pointer;
+    transition:border-color .15s;
+    position:relative;
+  }
+  .ship-item:hover{border-color:var(--accent);}
+  .ship-item.active{border-color:var(--green); background:var(--green-soft);}
+  .ship-item .name{font-weight:700; font-size:12px;}
+  .ship-item .meta{font-size:10px; color:var(--muted); margin-top:1px;}
+  .ship-item .pct{
+    font-size:10px;
+    color:var(--green);
+    font-weight:700;
+    margin-top:4px;
+  }
+  .mini-bar{
+    height:4px;
+    background:#eee0bf;
+    border-radius:4px;
+    overflow:hidden;
+    margin-top:3px;
+  }
+  .mini-bar-fill{
+    height:100%;
+    background:var(--green);
+    transition:width .3s;
+  }
+  .del-btn{
+    position:absolute;
+    top:5px; right:5px;
+    background:transparent;
+    color:var(--muted);
+    font-size:11px;
+    padding:1px 5px;
+    border-radius:5px;
+    line-height:1.4;
+  }
+  .del-btn:hover{color:var(--danger); background:#f5e3de;}
+  .empty-state{
+    color:var(--muted);
+    font-size:12px;
+    text-align:center;
+    padding:20px 8px;
+  }
+  .detail-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .detail-title{font-size:14px; font-weight:700;}
+  .detail-tags{
+    display:flex;
+    gap:6px;
+    margin-top:4px;
+    flex-wrap:wrap;
+  }
+  .tag{
+    background:var(--brown-soft);
+    border:1px solid var(--border);
+    color:var(--brown);
+    font-size:10px;
+    padding:2px 8px;
+    border-radius:20px;
+    font-weight:600;
+  }
+  .progress-wrap{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:10px 0 12px 0;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:8px 10px;
+  }
+  .progress-pct{
+    font-size:16px;
+    font-weight:800;
+    color:var(--green);
+    flex:0 0 auto;
+    min-width:42px;
+  }
+  .progress-bar-outer{
+    flex:1;
+    height:8px;
+    background:#eee0bf;
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .progress-bar-inner{
+    height:100%;
+    background:linear-gradient(90deg,var(--accent),var(--green));
+    transition:width .35s ease;
+  }
+  .step-list{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px;
+  }
+  @media (max-width:520px){
+    .step-list{grid-template-columns:1fr;}
+  }
+  .step{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:6px 8px;
+    transition:opacity .2s, border-color .2s, background .2s;
+  }
+  .step.done{
+    border-color:var(--green);
+    background:var(--green-soft);
+  }
+  .step.skipped{
+    opacity:.45;
+  }
+  .step-num{
+    font-size:10px;
+    color:var(--muted);
+    width:14px;
+    flex-shrink:0;
+  }
+  .step-name{
+    flex:1;
+    font-size:12px;
+    font-weight:600;
+    line-height:1.2;
+  }
+  .step-name .opt-tag{
+    display:block;
+    font-size:9px;
+    color:var(--brown);
+    margin-top:1px;
+    font-weight:600;
+  }
+  .step-actions{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    flex-shrink:0;
+  }
+  .needed-toggle{
+    font-size:9px;
+    color:var(--muted);
+    background:transparent;
+    border:1px solid var(--border);
+    padding:3px 5px;
+    border-radius:5px;
+    white-space:nowrap;
+  }
+  .needed-toggle.off{
+    color:var(--danger);
+    border-color:#e3c1b8;
+  }
+  .done-btn{
+    font-size:10.5px;
+    font-weight:700;
+    padding:4px 9px;
+    border-radius:6px;
+    background:#fff;
+    border:1px solid var(--border);
+    color:var(--text);
+    white-space:nowrap;
+  }
+  .done-btn.is-done{
+    background:var(--green);
+    color:#2e4a2b;
+    border-color:var(--green);
+  }
+  .done-btn:disabled{
+    opacity:.4;
+    cursor:not-allowed;
+  }
+  .mode-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--brown-soft);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:7px 10px;
+    margin-bottom:14px;
+    font-size:11.5px;
+    color:var(--brown);
+    font-weight:600;
+  }
+  .mode-bar.editing{
+    background:var(--green-soft);
+    color:#3d5c39;
+  }
+  .btn-unlock{
+    background:#fff;
+    border:1px solid var(--border);
+    color:var(--text);
+    font-size:11px;
+    font-weight:700;
+    padding:5px 10px;
+    border-radius:6px;
+  }
+  .btn-unlock:hover{border-color:var(--accent);}
+  .btn-unlock.on{
+    background:var(--green);
+    color:#2e4a2b;
+    border-color:var(--green);
+  }
+  .loading, .error-box{
+    color:var(--muted);
+    font-size:12px;
+    padding:14px;
+    text-align:center;
+  }
+  .error-box{color:var(--danger);}
+</style>
+</head>
+<body>
+
+<h1>📦 Shipment Tracker</h1>
+<div class="subtitle">Pantau progress dokumen tiap kiriman sampai selesai (SPPB). 🔗 Mode shared — semua orang melihat data yang sama.</div>
+
+<div class="mode-bar" id="modeBar">
+  <span id="modeLabel">🔒 Mode lihat saja</span>
+  <button id="btnToggleEdit" class="btn-unlock">Aktifkan Mode Edit</button>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="card">
+      <h2>+ Kiriman Baru</h2>
+      <label>Nomor Shipment</label>
+      <input type="text" id="inpNomor" placeholder="cth: SHP-2026-0091">
+      <label>Port</label>
+      <input type="text" id="inpPort" placeholder="cth: Tanjung Priok">
+      <label>Incoterms</label>
+      <input type="text" id="inpIncoterms" placeholder="cth: FOB / CIF / CFR">
+      <button class="btn-primary" id="btnAdd">Tambah Kiriman</button>
+    </div>
+
+    <div class="card">
+      <h2>Daftar Kiriman</h2>
+      <div id="shipList" class="ship-list">
+        <div class="loading">Memuat...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="card" id="detailCard">
+      <div class="empty-state">Pilih atau tambahkan kiriman untuk mulai tracking.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== PENGATURAN (isi sebelum deploy) ======
+   FIREBASE_URL : URL Firebase Realtime Database, cth "https://nama-proyek-default-rtdb.firebaseio.com"
+                  Kosong = data hanya tersimpan di browser ini (localStorage), TIDAK dibagi ke orang lain.
+   EDIT_PASSCODE: passcode untuk membuka mode edit. Kosong = tanpa passcode.
+   Catatan: passcode ini terlihat di source halaman, jadi hanya pengaman ringan. */
+const CONFIG = { FIREBASE_URL: "", EDIT_PASSCODE: "" };
+
+const STEP_DEFS = [
+  {key:"invoice", name:"Invoice", optional:false},
+  {key:"packing_list", name:"Packing List", optional:false},
+  {key:"insurance", name:"Insurance", optional:false},
+  {key:"schedule_booking", name:"Schedule Booking", optional:false},
+  {key:"vo", name:"VO", optional:true},
+  {key:"ls", name:"LS", optional:true},
+  {key:"bl_draft", name:"BL Draft", optional:false},
+  {key:"bl_final", name:"BL Final", optional:false},
+  {key:"fe", name:"FE", optional:false},
+  {key:"e_coo", name:"E-COO", optional:false},
+  {key:"pib_draft", name:"PIB Draft", optional:false},
+  {key:"billing", name:"Billing", optional:false},
+  {key:"sppb", name:"SPPB", optional:false}
+];
+
+const base = (CONFIG.FIREBASE_URL || "").replace(/\/+$/, "");
+const useRemote = !!base;
+let shipments = [];
+let activeId = null;
+let canWrite = false;
+
+function normalize(raw, id){
+  const s = JSON.parse(JSON.stringify(raw || {}));
+  s.id = id;
+  s.steps = s.steps || {};
+  STEP_DEFS.forEach(d=>{ if(!s.steps[d.key]) s.steps[d.key] = { done:false, needed:true }; });
+  return s;
+}
+function newShipment(nomor, port, incoterms){
+  const steps = {};
+  STEP_DEFS.forEach(s=>{ steps[s.key] = { done:false, needed:true }; });
+  return { id:"ship_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), nomor, port, incoterms, steps, createdAt:Date.now() };
+}
+
+/* ---- penyimpanan ---- */
+function saveLocal(){ try{ localStorage.setItem("shipments", JSON.stringify(shipments)); }catch(e){} }
+async function loadAll(){
+  try{
+    if(useRemote){
+      const r = await fetch(base + "/shipments.json");
+      const o = await r.json();
+      return o ? Object.keys(o).map(k=>normalize(o[k], k)) : [];
+    }
+    const raw = localStorage.getItem("shipments");
+    return (raw ? JSON.parse(raw) : []).map(s=>normalize(s, s.id));
+  }catch(e){ return null; }
+}
+async function persist(ship){
+  if(!canWrite) return;
+  try{
+    if(useRemote) await fetch(base + "/shipments/" + ship.id + ".json", {method:"PUT", body:JSON.stringify(ship)});
+    else saveLocal();
+  }catch(e){}
+}
+async function removeShip(id){
+  shipments = shipments.filter(s=>s.id!==id);
+  try{
+    if(useRemote) await fetch(base + "/shipments/" + id + ".json", {method:"DELETE"});
+    else saveLocal();
+  }catch(e){}
+}
+async function refresh(){
+  const data = await loadAll();
+  if(data === null) return;
+  shipments = data;
+  if(!shipments.some(s=>s.id===activeId)){
+    const n = shipments.slice().sort((a,b)=>b.createdAt-a.createdAt)[0];
+    activeId = n ? n.id : null;
+  }
+  renderList(); renderDetail();
+}
+
+/* ---- tampilan ---- */
+function calcProgress(ship){
+  let total = 0, done = 0;
+  STEP_DEFS.forEach(s=>{
+    const st = ship.steps[s.key];
+    if(s.optional && !st.needed) return;
+    total++;
+    if(st.done) done++;
+  });
+  return total === 0 ? 0 : Math.min(100, Math.round((done/total)*100));
+}
+function escapeHtml(str){
+  const d = document.createElement("div");
+  d.innerText = str == null ? "" : String(str);
+  return d.innerHTML;
+}
+function updateModeBar(){
+  const bar = document.getElementById("modeBar");
+  const btn = document.getElementById("btnToggleEdit");
+  const addBtn = document.getElementById("btnAdd");
+  bar.classList.toggle("editing", canWrite);
+  btn.classList.toggle("on", canWrite);
+  document.getElementById("modeLabel").textContent = canWrite ? "✏️ Mode edit aktif" : "🔒 Mode lihat saja";
+  btn.textContent = canWrite ? "Kunci (Mode Lihat)" : "Aktifkan Mode Edit";
+  addBtn.disabled = !canWrite;
+  addBtn.style.opacity = canWrite ? 1 : .5;
+}
+function renderList(){
+  const container = document.getElementById("shipList");
+  if(shipments.length === 0){
+    container.innerHTML = '<div class="empty-state">Belum ada kiriman.</div>';
+    return;
+  }
+  container.innerHTML = "";
+  shipments.slice().sort((a,b)=>b.createdAt-a.createdAt).forEach(ship=>{
+    const pct = calcProgress(ship);
+    const div = document.createElement("div");
+    div.className = "ship-item" + (ship.id===activeId ? " active" : "");
+    div.innerHTML = `
+      ${canWrite ? `<button class="del-btn" data-id="${ship.id}" title="Hapus">✕</button>` : ''}
+      <div class="name">${escapeHtml(ship.nomor || "(tanpa nomor)")}</div>
+      <div class="meta">${escapeHtml(ship.port||"-")} · ${escapeHtml(ship.incoterms||"-")}</div>
+      <div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%"></div></div>
+      <div class="pct">${pct}%</div>`;
+    div.addEventListener("click", (e)=>{
+      if(e.target.closest(".del-btn")) return;
+      activeId = ship.id; renderList(); renderDetail();
+    });
+    container.appendChild(div);
+  });
+  container.querySelectorAll(".del-btn").forEach(btn=>{
+    btn.addEventListener("click", async (e)=>{
+      e.stopPropagation();
+      if(!canWrite) return;
+      if(!confirm("Hapus kiriman ini beserta semua progress-nya?")) return;
+      await removeShip(btn.getAttribute("data-id"));
+      if(!shipments.some(s=>s.id===activeId)) activeId = shipments.length ? shipments[0].id : null;
+      renderList(); renderDetail();
+    });
+  });
+}
+function renderDetail(){
+  const card = document.getElementById("detailCard");
+  const ship = shipments.find(s=>s.id===activeId);
+  if(!ship){
+    card.innerHTML = '<div class="empty-state">Pilih atau tambahkan kiriman untuk mulai tracking.</div>';
+    return;
+  }
+  const pct = calcProgress(ship);
+  let stepsHtml = "";
+  STEP_DEFS.forEach((s, idx)=>{
+    const st = ship.steps[s.key];
+    const isSkipped = s.optional && !st.needed;
+    stepsHtml += `
+      <div class="step ${st.done?'done':''} ${isSkipped?'skipped':''}">
+        <div class="step-num">${idx+1}</div>
+        <div class="step-name">${s.name}${s.optional?'<span class="opt-tag">if needed</span>':''}</div>
+        <div class="step-actions">
+          ${s.optional ? `<button class="needed-toggle ${st.needed?'':'off'}" data-key="${s.key}" data-action="toggle-needed" ${canWrite?'':'disabled'}>${st.needed?'perlu':'skip'}</button>` : ''}
+          <button class="done-btn ${st.done?'is-done':''}" data-key="${s.key}" data-action="toggle-done" ${(isSkipped||!canWrite)?'disabled':''}>${st.done?'✓':'Done'}</button>
+        </div>
+      </div>`;
+  });
+  card.innerHTML = `
+    <div class="detail-header"><div>
+      <div class="detail-title">${escapeHtml(ship.nomor||"(tanpa nomor)")}</div>
+      <div class="detail-tags">
+        <span class="tag">Port: ${escapeHtml(ship.port||"-")}</span>
+        <span class="tag">Incoterms: ${escapeHtml(ship.incoterms||"-")}</span>
+      </div>
+    </div></div>
+    <div class="progress-wrap">
+      <div class="progress-pct">${pct}%</div>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:${pct}%"></div></div>
+    </div>
+    <div class="step-list">${stepsHtml}</div>`;
+  card.querySelectorAll('[data-action="toggle-done"]').forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const k = btn.getAttribute("data-key");
+      ship.steps[k].done = !ship.steps[k].done;
+      persist(ship); renderList(); renderDetail();
+    });
+  });
+  card.querySelectorAll('[data-action="toggle-needed"]').forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const k = btn.getAttribute("data-key");
+      ship.steps[k].needed = !ship.steps[k].needed;
+      if(!ship.steps[k].needed) ship.steps[k].done = false;
+      persist(ship); renderList(); renderDetail();
+    });
+  });
+}
+
+document.getElementById("btnToggleEdit").addEventListener("click", ()=>{
+  if(canWrite){ canWrite = false; }
+  else{
+    if(CONFIG.EDIT_PASSCODE){
+      const p = prompt("Masukkan passcode edit:");
+      if(p !== CONFIG.EDIT_PASSCODE) return;
+    }
+    canWrite = true;
+  }
+  updateModeBar(); renderList(); renderDetail();
+});
+document.getElementById("btnAdd").addEventListener("click", ()=>{
+  if(!canWrite) return;
+  const nomor = document.getElementById("inpNomor").value.trim();
+  const port = document.getElementById("inpPort").value.trim();
+  const incoterms = document.getElementById("inpIncoterms").value.trim();
+  if(!nomor){ alert("Nomor shipment wajib diisi."); return; }
+  const ship = newShipment(nomor, port, incoterms);
+  shipments.push(ship);
+  activeId = ship.id;
+  ["inpNomor","inpPort","inpIncoterms"].forEach(i=>{ document.getElementById(i).value = ""; });
+  persist(ship); renderList(); renderDetail();
+});
+
+updateModeBar();
+refresh();
+if(useRemote) setInterval(()=>{ if(!document.hidden) refresh(); }, 15000);
+</script>
+</body>
+</html>
