@@ -137,4 +137,183 @@ function DEMO(){
  ];
 }
 
-/* ---- storage (same Firebase structure as
+/* ---- storage (same Firebase structure as before) ---- */
+const base = (CONFIG.FIREBASE_URL||"").replace(/\/+$/,"");
+const remote = !!base;
+const saveLocal = () => { try{ localStorage.setItem("shipments", JSON.stringify(S.ships.filter(x=>!x.demo))); }catch(e){} };
+async function loadAll(){
+ try{
+  if(remote){ const o = await (await fetch(base+"/shipments.json")).json(); return o ? Object.keys(o).map(k=>normalize(o[k],k)) : []; }
+  const raw = localStorage.getItem("shipments");
+  return (raw ? JSON.parse(raw) : []).map(s=>normalize(s,s.id));
+ }catch(e){ return null; }
+}
+async function save(s){
+ if(s.demo || !S.team) return;
+ try{ if(remote) await fetch(base+"/shipments/"+s.id+".json",{method:"PUT",body:JSON.stringify(s)}); else saveLocal(); }catch(e){}
+}
+async function removeShip(id){
+ S.ships = S.ships.filter(s=>s.id!==id);
+ try{ if(remote) await fetch(base+"/shipments/"+id+".json",{method:"DELETE"}); else saveLocal(); }catch(e){}
+}
+async function refresh(){
+ const ae = document.activeElement;
+ if(ae && ae.closest && ae.closest("#detail,#modal")) return;
+ const d = await loadAll();
+ if(d===null){ if(!S.ships.length){ S.ships = DEMO(); S.demo = true; S.err = true; } }
+ else if(d.length){ S.ships = d; S.demo = false; S.err = false; }
+ else if(!S.ships.some(x=>!x.demo)){ S.ships = DEMO(); S.demo = true; S.err = false; }
+ if(S.active && !S.ships.some(x=>x.id===S.active)){ S.active = null; }
+ draw();
+}
+
+/* ---- UI ---- */
+function bar(s){
+ const p = prog(s), c = cur(s);
+ return `<div class="flex gap-1">${p.slice(0,5).map((x,i)=>`<div class="h-2 flex-1 rounded-full ${x.ok?"bg-emerald-500":i===c?(bad(s)?"bg-rose-400":i>=2?"bg-amber-400":"bg-blue-400"):"bg-slate-200"}"></div>`).join("")}</div>`;
+}
+function card(s){
+ const st = status(s), isSel = s.id===S.active;
+ return `<button data-act="sel" data-id="${s.id}" class="w-full text-left bg-white rounded-xl border p-3.5 transition hover:shadow-md hover:border-blue-300 flex flex-col justify-between ${isSel?"ring-2 ring-blue-500 border-blue-500":""}">
+  <div>
+   <div class="flex justify-between gap-2"><div class="font-semibold text-slate-900">${esc(s.barang||s.nomor)}</div><div class="text-xs text-slate-500 whitespace-nowrap">${esc(s.qty||"")}</div></div>
+   <div class="text-xs text-slate-500 mt-0.5">PO ${esc(s.po||"-")} • ${esc(s.supplier||"-")}</div>
+   <div class="mt-2.5 text-sm font-medium">${st.t}</div>
+   <span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full border ${TONE[st.tone]}">${st.b}</span>
+  </div>
+  <div class="mt-3">
+   ${bar(s)}
+   <div class="mt-2.5 flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-lg px-2.5 py-1.5 font-semibold"><i data-lucide="warehouse" class="w-4 h-4 shrink-0"></i><span>Est. warehouse arrival: ${fmt(s.etaGudang)}</span></div>
+   <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1.5">
+    <span>Port ETA: ${fmt(s.etaPort)}</span>
+    <span class="text-blue-600 font-medium flex items-center gap-0.5">${isSel?"Viewing details":"View process"} <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></span>
+   </div>
+  </div>
+ </button>`;
+}
+function detail(s){
+ const E = S.team, st = status(s), c = cur(s), p = prog(s);
+ const ident = [["Container No.",s.kontainer],["BL No.",s.bl],["Shipment No.",s.nomor],["Origin Port",s.portAsal],["Destination Port",s.port],["Incoterms",s.incoterms]]
+  .map(([k,v])=>`<div><div class="text-xs text-slate-500">${k}</div><div class="font-medium">${esc(v||"-")}</div></div>`).join("");
+ const ctl = E ? `<div class="rounded-lg border border-dashed p-3 grid sm:grid-cols-2 gap-3">
+  <label class="text-xs text-slate-500">Customs Lane<select data-f="jalur" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800 bg-white">${[["","None yet"],["hijau","Green Lane"],["kuning","Yellow Lane (SPJK)"],["merah","Red Lane (SPJM)"]].map(([v,l])=>`<option value="${v}" ${s.jalur===v?"selected":""}>${l}</option>`).join("")}</select></label>
+  <label class="text-xs text-slate-500">Issue (leave empty if none)<input data-f="kendala" value="${esc(s.kendala||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
+  <label class="text-xs text-slate-500">ETD (Departure Date)<input type="date" data-f="etd" value="${esc(s.etd||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
+  <label class="text-xs text-slate-500">Port ETA<input type="date" data-f="etaPort" value="${esc(s.etaPort||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
+  <label class="text-xs text-slate-500 sm:col-span-2">Estimated Warehouse Arrival<input type="date" data-f="etaGudang" value="${esc(s.etaGudang||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label></div>` : "";
+ const tl = STAGES.map((g,i)=>{
+  const done = i<6 && (i===5 ? c===6 : p[i].ok), now = i===c;
+  const docs = E ? `<div class="mt-2 pt-2 border-t border-slate-100 text-xs">${g.keys.map(k=>{
+   const m = s.steps[k], skip = OPT.includes(k) && !m.needed;
+   return `<div class="flex items-center justify-between gap-2 py-1 ${skip?"opacity-50":""}"><span class="flex items-center gap-1.5 ${m.done?"text-emerald-700":""}"><i data-lucide="${m.done?"circle-check":"circle"}" class="w-4 h-4"></i>${NAMES[k]}${skip?" (not required)":""}</span>
+   <span class="flex gap-1">${OPT.includes(k)?`<button data-act="nd" data-k="${k}" class="text-[11px] px-2 py-0.5 rounded border">${m.needed?"Not needed":"Needed"}</button>`:""}<button data-act="tg" data-k="${k}" ${skip?"disabled":""} class="text-[11px] px-2 py-0.5 rounded border ${m.done?"bg-emerald-500 text-white border-emerald-500":"bg-white"}">${m.done?"Done":"Mark done"}</button></span></div>`;
+  }).join("")}</div>` : "";
+  return `<div class="flex gap-3"><div class="flex flex-col items-center"><div class="w-8 h-8 rounded-full flex items-center justify-center ${done?"bg-emerald-500 text-white":now?"bg-blue-600 text-white ring-4 ring-blue-100":"bg-slate-200 text-slate-500"}"><i data-lucide="${done?"check":g.ic}" class="w-4 h-4"></i></div>${i<5?`<div class="w-px flex-1 ${done?"bg-emerald-300":"bg-slate-200"}"></div>`:""}</div>
+  <div class="pb-4 flex-1"><div class="font-semibold ${done?"text-emerald-800":now?"text-blue-700":"text-slate-700"}">${i+1}. ${g.n}${done?` <span class="text-xs text-emerald-600 font-medium">• completed</span>`:now?` <span class="text-xs text-blue-600 font-medium">• current stage</span>`:""}</div><p class="text-xs text-slate-500 mt-0.5">${g.d}</p>${docs}</div></div>`;
+ }).join("");
+ const notes = [...s.notes].sort((a,b)=>b.t-a.t).map(n=>`<div class="border-l-2 border-blue-300 pl-3 py-1"><div class="text-xs text-slate-500">${fmtT(n.t)}</div><div>${esc(n.text)}</div></div>`).join("") || `<div class="text-slate-400 text-xs">No notes yet.</div>`;
+ const form = E ? `<div class="flex gap-2"><textarea id="noteIn" rows="2" placeholder="Write an update for all employees..." class="flex-1 border rounded-lg px-2 py-1.5"></textarea><button data-act="note" class="px-3 rounded-lg bg-blue-600 text-white">Post</button></div>` : "";
+ return `<div class="bg-white rounded-xl border shadow-sm p-4 space-y-4">
+  <div class="flex items-start justify-between gap-2 border-b pb-3">
+   <div>
+    <h2 class="text-lg font-bold">${esc(s.barang||s.nomor)} <span class="text-sm font-normal text-slate-500">${esc(s.qty||"")}</span></h2>
+    <p class="text-slate-500">PO ${esc(s.po||"-")} • ${esc(s.supplier||"-")}</p>
+   </div>
+   <div class="flex items-center gap-1.5 shrink-0">
+    ${E?`<button data-act="del" title="Delete shipment" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`:""}
+    <button data-act="closeDetail" title="Close shipping process" class="px-2.5 py-1.5 rounded-lg border bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center gap-1 text-xs font-medium"><i data-lucide="x" class="w-4 h-4"></i>Close</button>
+   </div>
+  </div>
+  <div class="rounded-lg border p-3 ${TONE[st.tone]}"><div class="font-semibold">${st.t}</div><div class="text-xs">Technical term: ${st.b}</div>${s.kendala?`<div class="mt-1">Issue: ${esc(s.kendala)}</div>`:""}</div>
+  <div class="grid grid-cols-3 gap-3"><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">ETD</div><div class="font-semibold">${fmt(s.etd)}</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">Port ETA</div><div class="font-semibold">${fmt(s.etaPort)}</div></div>
+  <div class="rounded-lg bg-indigo-50 p-3"><div class="text-xs text-indigo-600">Estimated Arrival at PT TNP Warehouse</div><div class="text-base font-bold text-indigo-700">${fmt(s.etaGudang)}</div></div></div>
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${ident}</div>${ctl}
+  <div><h3 class="font-semibold mb-2">Shipment Process</h3>${tl}</div>
+  <div><h3 class="font-semibold mb-2">Updates from the Shipping Team</h3><div class="space-y-2 mb-3">${notes}</div>${form}</div></div>`;
+}
+const wrap = (title,body) => `<div data-act="close" class="fixed inset-0 z-30 bg-slate-900/50 flex items-start justify-center p-4 overflow-y-auto"><div data-act="x" class="bg-white rounded-xl w-full max-w-2xl p-5 mt-8"><div class="flex justify-between mb-3"><h2 class="text-lg font-bold">${title}</h2><button data-act="close"><i data-lucide="x" class="w-5 h-5"></i></button></div>${body}</div></div>`;
+function modal(){
+ if(S.modal==="guide") return wrap("Guide &amp; Import Terms",
+  `<div class="flex flex-wrap items-center gap-1 text-xs mb-4">${["Document Preparation","Vessel Departed","Arrived at Port","Customs Processing","SPPB Issued","Arrived at PT TNP Warehouse"].map((n,i)=>`${i?'<i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>':""}<span class="px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">${i+1}. ${n}</span>`).join("")}</div>
+  <div class="space-y-2">${GLOSS.map(([k,v])=>`<div class="rounded-lg bg-slate-50 p-2"><b>${k}</b><div class="text-slate-600">${v}</div></div>`).join("")}</div>`);
+ if(S.modal==="add") return wrap("Add New Shipment",
+  `<div class="grid sm:grid-cols-2 gap-3">${FIELDS.map(([k,l,t])=>`<label class="text-xs text-slate-500">${l}<input id="f_${k}" type="${t||"text"}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>`).join("")}</div>
+  <button data-act="submit" class="mt-4 w-full py-2 rounded-lg bg-blue-600 text-white font-semibold">Save Shipment</button>`);
+ return "";
+}
+function draw(){
+ $("demo").innerHTML = S.demo ? `<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">This is <b>sample data</b>${S.err?" (database not connected)":""}. It disappears automatically once the first shipment is added.</div>` : "";
+ $("modeBadge").className = "text-xs px-2 py-1 rounded-full border " + (S.team ? TONE.emerald : TONE.slate);
+ $("modeBadge").textContent = S.team ? "Shipping Team Mode" : "View-Only Mode (All Employees)";
+ $("btnTeam").innerHTML = `<i data-lucide="${S.team?"lock":"lock-open"}" class="w-4 h-4"></i>${S.team?"Exit Shipping Team Mode":"Shipping Team Mode"}`;
+ $("btnAdd").classList.toggle("hidden", !S.team);
+ const K = [["aktif","Active Shipments","package","blue"],["minggu","Arriving at Warehouse This Week","warehouse","indigo"],["kendala","Needs Attention / Delayed","triangle-alert","rose"],["selesai","Completed This Month","circle-check","emerald"]];
+ $("kpi").innerHTML = K.map(([f,l,ic,c])=>`<button data-act="flt" data-f="${f}" class="text-left bg-white rounded-xl border p-3 flex items-center gap-3 hover:shadow-sm ${S.f===f?"ring-2 ring-slate-700":""}"><div class="p-2 rounded-lg ${KCOL[c]}"><i data-lucide="${ic}" class="w-5 h-5"></i></div><div><div class="text-2xl font-bold">${S.ships.filter(s=>match(s,f)).length}</div><div class="text-xs text-slate-500">${l}</div></div></button>`).join("");
+ $("tabs").innerHTML = [["all","All"],["jalan","In Transit"],["bc","Customs Processing"],["kendala","Delayed (Red Lane)"],["siap","Ready / At Warehouse"]]
+  .map(([f,l])=>`<button data-act="flt" data-f="${f}" class="px-3 py-1.5 rounded-full border ${S.f===f?"bg-slate-800 text-white border-slate-800":"bg-white"}">${l}</button>`).join("");
+ 
+ const v = visible();
+ const s = S.ships.find(x=>x.id===S.active);
+ const listEl = $("list"), detailEl = $("detail");
+
+ if(s){
+  listEl.className = "lg:col-span-2 space-y-2.5";
+  detailEl.className = "lg:col-span-3 lg:sticky lg:top-20";
+  detailEl.innerHTML = detail(s);
+ } else {
+  listEl.className = "lg:col-span-5 grid md:grid-cols-2 lg:grid-cols-3 gap-3";
+  detailEl.className = "hidden";
+  detailEl.innerHTML = "";
+ }
+
+ listEl.innerHTML = v.length ? v.map(card).join("") : `<div class="col-span-full text-center text-slate-400 py-10">No matching shipments.</div>`;
+ $("modal").innerHTML = modal();
+ if(window.lucide) lucide.createIcons();
+}
+
+/* ---- interactions ---- */
+const act = () => S.ships.find(x=>x.id===S.active);
+document.addEventListener("click", e=>{
+ const el = e.target.closest("[data-act]"); if(!el) return;
+ const a = el.dataset.act, s = act();
+ if(a==="sel"){
+  S.active = (S.active === el.dataset.id) ? null : el.dataset.id;
+  draw();
+  if(S.active && innerWidth<1024) $("detail").scrollIntoView({behavior:"smooth"});
+ }
+ else if(a==="closeDetail"){ S.active = null; draw(); }
+ else if(a==="flt"){ S.f = el.dataset.f; draw(); }
+ else if(a==="guide"){ S.modal = "guide"; draw(); }
+ else if(a==="add"){ S.modal = "add"; draw(); }
+ else if(a==="close"){ S.modal = ""; draw(); }
+ else if(a==="team"){
+  if(S.team) S.team = false;
+  else{ if(CONFIG.EDIT_PASSCODE && prompt("Enter Shipping Team PIN:")!==CONFIG.EDIT_PASSCODE){ alert("Incorrect PIN."); return; } S.team = true; }
+  draw();
+ }
+ else if(a==="tg" && s && S.team){ const m = s.steps[el.dataset.k]; m.done = !m.done; if(el.dataset.k==="gudang"){ if(m.done) s.gudangAt = new Date().toISOString(); else delete s.gudangAt; } save(s); draw(); }
+ else if(a==="nd" && s && S.team){ const m = s.steps[el.dataset.k]; m.needed = !m.needed; if(!m.needed) m.done = false; save(s); draw(); }
+ else if(a==="note" && s && S.team){ const t = $("noteIn").value.trim(); if(!t) return; s.notes.push({t:Date.now(), text:t}); save(s); draw(); }
+ else if(a==="del" && s && S.team){ if(confirm("Delete this shipment along with all its progress and notes?")){ removeShip(s.id).then(()=>{ S.active = null; refresh(); }); } }
+ else if(a==="submit"){
+  const v = {}; FIELDS.forEach(([k])=>v[k] = $("f_"+k).value.trim());
+  if(!v.barang){ alert("Item name is required."); return; }
+  const steps = {}; ALL.forEach(k=>steps[k] = {done:false, needed:true});
+  const sh = {...v, id:"ship_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), steps, jalur:"", kendala:"", notes:[], createdAt:Date.now()};
+  S.ships = S.ships.filter(x=>!x.demo); S.demo = false; S.ships.push(sh); S.active = sh.id; S.modal = "";
+  save(sh); draw();
+ }
+});
+document.addEventListener("change", e=>{
+ const f = e.target.dataset && e.target.dataset.f, s = act();
+ if(!f || !s || !S.team || e.target.closest("#kpi,#tabs")) return;
+ s[f] = e.target.value; save(s); draw();
+});
+$("q").addEventListener("input", e=>{ S.q = e.target.value.toLowerCase().trim(); draw(); });
+
+draw();
+refresh();
+if(remote) setInterval(()=>{ if(!document.hidden) refresh(); }, 15000);
+</script>
+</body>
+</html>
