@@ -32,9 +32,9 @@
    <input id="q" placeholder="Search item name, PO no., supplier, or container" class="w-full pl-9 pr-3 py-2 rounded-lg border bg-white outline-none focus:border-blue-500"></div>
   <div id="tabs" class="flex flex-wrap gap-2"></div>
  </div>
- <div class="grid lg:grid-cols-5 gap-4 items-start">
-  <div id="list" class="lg:col-span-2 space-y-2"></div>
-  <div id="detail" class="lg:col-span-3"></div>
+ <div id="workspace" class="grid lg:grid-cols-5 gap-4 items-start">
+  <div id="list" class="lg:col-span-5 grid md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+  <div id="detail" class="hidden lg:col-span-3 lg:sticky lg:top-20"></div>
  </div>
 </main>
 <div id="modal"></div>
@@ -83,7 +83,7 @@ function status(s){
  if(s.jalur==="merah") return {t:"Physical Customs Inspection — Possible 2-4 Day Delay", b:"SPJM / Red Lane", tone:"rose"};
  if(s.kendala) return {t:"Issue Reported — Shipping Team Is Handling It", b:"Issue", tone:"rose"};
  if(s.jalur==="kuning" && c<5) return {t:"Customs Document Check", b:"SPJK / Yellow Lane", tone:"amber"};
-  if(s.etd && c<2){ const t=new Date(); t.setHours(0,0,0,0); return t < new Date(s.etd+"T00:00:00") ? {t:"Not Departed Yet", b:"ETD "+fmt(s.etd), tone:"slate"} : {t:"In Transit by Sea", b:"Port ETA", tone:"blue"}; }
+ if(s.etd && c<2){ const t=new Date(); t.setHours(0,0,0,0); return t < new Date(s.etd+"T00:00:00") ? {t:"Not Departed Yet", b:"ETD "+fmt(s.etd), tone:"slate"} : {t:"In Transit by Sea", b:"Port ETA", tone:"blue"}; }
  return [
   {t:"Preparing Shipping Documents", b:"Invoice & Packing List", tone:"slate"},
   {t:"In Transit by Sea", b:"Port ETA", tone:"blue"},
@@ -163,7 +163,8 @@ async function refresh(){
  if(d===null){ if(!S.ships.length){ S.ships = DEMO(); S.demo = true; S.err = true; } }
  else if(d.length){ S.ships = d; S.demo = false; S.err = false; }
  else if(!S.ships.some(x=>!x.demo)){ S.ships = DEMO(); S.demo = true; S.err = false; }
- if(!S.ships.some(x=>x.id===S.active)){ const v = visible()[0] || S.ships[0]; S.active = v ? v.id : null; }
+ // Keep S.active null unless the user explicitly clicked a shipment that still exists
+ if(S.active && !S.ships.some(x=>x.id===S.active)){ S.active = null; }
  draw();
 }
 
@@ -173,15 +174,23 @@ function bar(s){
  return `<div class="flex gap-1">${p.slice(0,5).map((x,i)=>`<div class="h-2 flex-1 rounded-full ${x.ok?"bg-emerald-500":i===c?(bad(s)?"bg-rose-400":i>=2?"bg-amber-400":"bg-blue-400"):"bg-slate-200"}"></div>`).join("")}</div>`;
 }
 function card(s){
- const st = status(s);
- return `<button data-act="sel" data-id="${s.id}" class="w-full text-left bg-white rounded-xl border p-3 hover:shadow-sm ${s.id===S.active?"ring-2 ring-blue-500":""}">
-  <div class="flex justify-between gap-2"><div class="font-semibold">${esc(s.barang||s.nomor)}</div><div class="text-xs text-slate-500 whitespace-nowrap">${esc(s.qty||"")}</div></div>
-  <div class="text-xs text-slate-500">PO ${esc(s.po||"-")} • ${esc(s.supplier||"-")}</div>
-  <div class="mt-2 text-sm font-medium">${st.t}</div>
-  <span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full border ${TONE[st.tone]}">${st.b}</span>
-  <div class="mt-2">${bar(s)}</div>
-  <div class="mt-2 flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-lg px-2 py-1.5 font-semibold"><i data-lucide="warehouse" class="w-4 h-4"></i>Estimated warehouse arrival: ${fmt(s.etaGudang)}</div>
-  <div class="text-[11px] text-slate-400 mt-1">Port ETA: ${fmt(s.etaPort)}</div></button>`;
+ const st = status(s), isSel = s.id===S.active;
+ return `<button data-act="sel" data-id="${s.id}" class="w-full text-left bg-white rounded-xl border p-3.5 transition hover:shadow-md hover:border-blue-300 flex flex-col justify-between ${isSel?"ring-2 ring-blue-500 border-blue-500":""}">
+  <div>
+   <div class="flex justify-between gap-2"><div class="font-semibold text-slate-900">${esc(s.barang||s.nomor)}</div><div class="text-xs text-slate-500 whitespace-nowrap">${esc(s.qty||"")}</div></div>
+   <div class="text-xs text-slate-500 mt-0.5">PO ${esc(s.po||"-")} • ${esc(s.supplier||"-")}</div>
+   <div class="mt-2.5 text-sm font-medium">${st.t}</div>
+   <span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full border ${TONE[st.tone]}">${st.b}</span>
+  </div>
+  <div class="mt-3">
+   ${bar(s)}
+   <div class="mt-2.5 flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-lg px-2.5 py-1.5 font-semibold"><i data-lucide="warehouse" class="w-4 h-4 shrink-0"></i><span>Est. warehouse arrival: ${fmt(s.etaGudang)}</span></div>
+   <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1.5">
+    <span>Port ETA: ${fmt(s.etaPort)}</span>
+    <span class="text-blue-600 font-medium flex items-center gap-0.5">${isSel?"Viewing details":"View process"} <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></span>
+   </div>
+  </div>
+ </button>`;
 }
 function detail(s){
  const E = S.team, st = status(s), c = cur(s), p = prog(s);
@@ -190,8 +199,9 @@ function detail(s){
  const ctl = E ? `<div class="rounded-lg border border-dashed p-3 grid sm:grid-cols-2 gap-3">
   <label class="text-xs text-slate-500">Customs Lane<select data-f="jalur" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800 bg-white">${[["","None yet"],["hijau","Green Lane"],["kuning","Yellow Lane (SPJK)"],["merah","Red Lane (SPJM)"]].map(([v,l])=>`<option value="${v}" ${s.jalur===v?"selected":""}>${l}</option>`).join("")}</select></label>
   <label class="text-xs text-slate-500">Issue (leave empty if none)<input data-f="kendala" value="${esc(s.kendala||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
-  <label class="text-xs text-slate-500"><label class="text-xs text-slate-500">ETD (Departure Date)<input type="date" data-f="etd" value="${esc(s.etd||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>Port ETA<input type="date" data-f="etaPort" value="${esc(s.etaPort||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
-  <label class="text-xs text-slate-500">Estimated Warehouse Arrival<input type="date" data-f="etaGudang" value="${esc(s.etaGudang||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label></div>` : "";
+  <label class="text-xs text-slate-500">ETD (Departure Date)<input type="date" data-f="etd" value="${esc(s.etd||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
+  <label class="text-xs text-slate-500">Port ETA<input type="date" data-f="etaPort" value="${esc(s.etaPort||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
+  <label class="text-xs text-slate-500 sm:col-span-2">Estimated Warehouse Arrival<input type="date" data-f="etaGudang" value="${esc(s.etaGudang||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label></div>` : "";
  const tl = STAGES.map((g,i)=>{
   const done = i<6 && (i===5 ? c===6 : p[i].ok), now = i===c;
   const docs = g.keys.map(k=>{
@@ -204,14 +214,22 @@ function detail(s){
  }).join("");
  const notes = [...s.notes].sort((a,b)=>b.t-a.t).map(n=>`<div class="border-l-2 border-blue-300 pl-3 py-1"><div class="text-xs text-slate-500">${fmtT(n.t)}</div><div>${esc(n.text)}</div></div>`).join("") || `<div class="text-slate-400 text-xs">No notes yet.</div>`;
  const form = E ? `<div class="flex gap-2"><textarea id="noteIn" rows="2" placeholder="Write an update for all employees..." class="flex-1 border rounded-lg px-2 py-1.5"></textarea><button data-act="note" class="px-3 rounded-lg bg-blue-600 text-white">Post</button></div>` : "";
- return `<div class="bg-white rounded-xl border p-4 space-y-4">
-  <div class="flex justify-between gap-2"><div><h2 class="text-lg font-bold">${esc(s.barang||s.nomor)} <span class="text-sm font-normal text-slate-500">${esc(s.qty||"")}</span></h2><p class="text-slate-500">PO ${esc(s.po||"-")} • ${esc(s.supplier||"-")}</p></div>
-  ${E?`<button data-act="del" title="Delete shipment" class="text-slate-400 hover:text-rose-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`:""}</div>
+ return `<div class="bg-white rounded-xl border shadow-sm p-4 space-y-4">
+  <div class="flex items-start justify-between gap-2 border-b pb-3">
+   <div>
+    <h2 class="text-lg font-bold">${esc(s.barang||s.nomor)} <span class="text-sm font-normal text-slate-500">${esc(s.qty||"")}</span></h2>
+    <p class="text-slate-500">PO ${esc(s.po||"-")} • ${esc(s.supplier||"-")}</p>
+   </div>
+   <div class="flex items-center gap-1.5 shrink-0">
+    ${E?`<button data-act="del" title="Delete shipment" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`:""}
+    <button data-act="closeDetail" title="Close shipping process" class="px-2.5 py-1.5 rounded-lg border bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center gap-1 text-xs font-medium"><i data-lucide="x" class="w-4 h-4"></i>Close</button>
+   </div>
+  </div>
   <div class="rounded-lg border p-3 ${TONE[st.tone]}"><div class="font-semibold">${st.t}</div><div class="text-xs">Technical term: ${st.b}</div>${s.kendala?`<div class="mt-1">Issue: ${esc(s.kendala)}</div>`:""}</div>
   <div class="grid grid-cols-3 gap-3"><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">ETD</div><div class="font-semibold">${fmt(s.etd)}</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">Port ETA</div><div class="font-semibold">${fmt(s.etaPort)}</div></div>
   <div class="rounded-lg bg-indigo-50 p-3"><div class="text-xs text-indigo-600">Estimated Arrival at PT TNP Warehouse</div><div class="text-base font-bold text-indigo-700">${fmt(s.etaGudang)}</div></div></div>
   <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${ident}</div>${ctl}
-  <div><h3 class="font-semibold mb-2">Shipment Progress</h3>${tl}</div>
+  <div><h3 class="font-semibold mb-2">Shipment Process</h3>${tl}</div>
   <div><h3 class="font-semibold mb-2">Updates from the Shipping Team</h3><div class="space-y-2 mb-3">${notes}</div>${form}</div></div>`;
 }
 const wrap = (title,body) => `<div data-act="close" class="fixed inset-0 z-30 bg-slate-900/50 flex items-start justify-center p-4 overflow-y-auto"><div data-act="x" class="bg-white rounded-xl w-full max-w-2xl p-5 mt-8"><div class="flex justify-between mb-3"><h2 class="text-lg font-bold">${title}</h2><button data-act="close"><i data-lucide="x" class="w-5 h-5"></i></button></div>${body}</div></div>`;
@@ -234,10 +252,22 @@ function draw(){
  $("kpi").innerHTML = K.map(([f,l,ic,c])=>`<button data-act="flt" data-f="${f}" class="text-left bg-white rounded-xl border p-3 flex items-center gap-3 hover:shadow-sm ${S.f===f?"ring-2 ring-slate-700":""}"><div class="p-2 rounded-lg ${KCOL[c]}"><i data-lucide="${ic}" class="w-5 h-5"></i></div><div><div class="text-2xl font-bold">${S.ships.filter(s=>match(s,f)).length}</div><div class="text-xs text-slate-500">${l}</div></div></button>`).join("");
  $("tabs").innerHTML = [["all","All"],["jalan","In Transit"],["bc","Customs Processing"],["kendala","Delayed (Red Lane)"],["siap","Ready / At Warehouse"]]
   .map(([f,l])=>`<button data-act="flt" data-f="${f}" class="px-3 py-1.5 rounded-full border ${S.f===f?"bg-slate-800 text-white border-slate-800":"bg-white"}">${l}</button>`).join("");
+ 
  const v = visible();
- $("list").innerHTML = v.length ? v.map(card).join("") : `<div class="text-center text-slate-400 py-10">No matching shipments.</div>`;
  const s = S.ships.find(x=>x.id===S.active);
- $("detail").innerHTML = s ? detail(s) : `<div class="bg-white rounded-xl border p-10 text-center text-slate-400">Select a shipment from the list to see its details.</div>`;
+ const listEl = $("list"), detailEl = $("detail");
+
+ if(s){
+  listEl.className = "lg:col-span-2 space-y-2.5";
+  detailEl.className = "lg:col-span-3 lg:sticky lg:top-20";
+  detailEl.innerHTML = detail(s);
+ } else {
+  listEl.className = "lg:col-span-5 grid md:grid-cols-2 lg:grid-cols-3 gap-3";
+  detailEl.className = "hidden";
+  detailEl.innerHTML = "";
+ }
+
+ listEl.innerHTML = v.length ? v.map(card).join("") : `<div class="col-span-full text-center text-slate-400 py-10">No matching shipments.</div>`;
  $("modal").innerHTML = modal();
  if(window.lucide) lucide.createIcons();
 }
@@ -247,7 +277,13 @@ const act = () => S.ships.find(x=>x.id===S.active);
 document.addEventListener("click", e=>{
  const el = e.target.closest("[data-act]"); if(!el) return;
  const a = el.dataset.act, s = act();
- if(a==="sel"){ S.active = el.dataset.id; draw(); if(innerWidth<1024) $("detail").scrollIntoView({behavior:"smooth"}); }
+ if(a==="sel"){
+  // Clicking the currently open shipment toggles it closed; clicking another opens it
+  S.active = (S.active === el.dataset.id) ? null : el.dataset.id;
+  draw();
+  if(S.active && innerWidth<1024) $("detail").scrollIntoView({behavior:"smooth"});
+ }
+ else if(a==="closeDetail"){ S.active = null; draw(); }
  else if(a==="flt"){ S.f = el.dataset.f; draw(); }
  else if(a==="guide"){ S.modal = "guide"; draw(); }
  else if(a==="add"){ S.modal = "add"; draw(); }
