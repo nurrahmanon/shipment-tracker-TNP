@@ -83,6 +83,7 @@ function status(s){
  if(s.jalur==="merah") return {t:"Physical Customs Inspection — Possible 2-4 Day Delay", b:"SPJM / Red Lane", tone:"rose"};
  if(s.kendala) return {t:"Issue Reported — Shipping Team Is Handling It", b:"Issue", tone:"rose"};
  if(s.jalur==="kuning" && c<5) return {t:"Customs Document Check", b:"SPJK / Yellow Lane", tone:"amber"};
+  if(s.etd && c<2){ const t=new Date(); t.setHours(0,0,0,0); return t < new Date(s.etd+"T00:00:00") ? {t:"Not Departed Yet", b:"ETD "+fmt(s.etd), tone:"slate"} : {t:"In Transit by Sea", b:"Port ETA", tone:"blue"}; }
  return [
   {t:"Preparing Shipping Documents", b:"Invoice & Packing List", tone:"slate"},
   {t:"In Transit by Sea", b:"Port ETA", tone:"blue"},
