@@ -1,598 +1,284 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Shipment Tracker</title>
-<style>
-  :root{
-    --bg:#faf5ea;
-    --panel:#fffdf8;
-    --panel2:#faf0d8;
-    --border:#e6d5ae;
-    --text:#5c4a34;
-    --muted:#a68f6c;
-    --accent:#e0b04d;      /* pastel kuning/mustard */
-    --accent-soft:#f6e2a8;
-    --brown:#a9805a;       /* pastel coklat */
-    --brown-soft:#ecd9c2;
-    --green:#8fb98a;       /* pastel hijau */
-    --green-soft:#dcecd7;
-    --danger:#cf9484;
-    --radius:10px;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    background:var(--bg);
-    color:var(--text);
-    padding:16px;
-    font-size:13px;
-  }
-  h1{
-    font-size:17px;
-    margin:0 0 2px 0;
-    font-weight:700;
-  }
-  .subtitle{
-    color:var(--muted);
-    font-size:11.5px;
-    margin-bottom:14px;
-  }
-  .layout{
-    display:flex;
-    gap:14px;
-    align-items:flex-start;
-    flex-wrap:wrap;
-  }
-  .sidebar{
-    flex:0 0 250px;
-    min-width:220px;
-  }
-  .main{
-    flex:1 1 380px;
-    min-width:280px;
-  }
-  .card{
-    background:var(--panel);
-    border:1px solid var(--border);
-    border-radius:var(--radius);
-    padding:12px;
-    margin-bottom:12px;
-    box-shadow:0 1px 2px rgba(160,130,80,.06);
-  }
-  .card h2{
-    font-size:12px;
-    margin:0 0 8px 0;
-    color:var(--brown);
-    font-weight:700;
-    text-transform:uppercase;
-    letter-spacing:.03em;
-  }
-  label{
-    display:block;
-    font-size:11px;
-    color:var(--muted);
-    margin-bottom:3px;
-    margin-top:8px;
-  }
-  label:first-of-type{margin-top:0;}
-  input[type=text]{
-    width:100%;
-    background:#fffcf5;
-    border:1px solid var(--border);
-    border-radius:7px;
-    padding:6px 8px;
-    color:var(--text);
-    font-size:12px;
-    outline:none;
-  }
-  input[type=text]:focus{border-color:var(--accent);}
-  button{
-    cursor:pointer;
-    font-family:inherit;
-    border:none;
-  }
-  .btn-primary{
-    background:var(--accent);
-    color:#5c4520;
-    padding:7px 12px;
-    border-radius:7px;
-    font-size:12px;
-    font-weight:700;
-    width:100%;
-    margin-top:10px;
-  }
-  .btn-primary:hover{background:#d3a03c;}
-  .ship-list{
-    display:flex;
-    flex-direction:column;
-    gap:6px;
-  }
-  .ship-item{
-    background:var(--panel2);
-    border:1px solid var(--border);
-    border-radius:8px;
-    padding:7px 9px;
-    cursor:pointer;
-    transition:border-color .15s;
-    position:relative;
-  }
-  .ship-item:hover{border-color:var(--accent);}
-  .ship-item.active{border-color:var(--green); background:var(--green-soft);}
-  .ship-item .name{font-weight:700; font-size:12px;}
-  .ship-item .meta{font-size:10px; color:var(--muted); margin-top:1px;}
-  .ship-item .pct{
-    font-size:10px;
-    color:var(--green);
-    font-weight:700;
-    margin-top:4px;
-  }
-  .mini-bar{
-    height:4px;
-    background:#eee0bf;
-    border-radius:4px;
-    overflow:hidden;
-    margin-top:3px;
-  }
-  .mini-bar-fill{
-    height:100%;
-    background:var(--green);
-    transition:width .3s;
-  }
-  .del-btn{
-    position:absolute;
-    top:5px; right:5px;
-    background:transparent;
-    color:var(--muted);
-    font-size:11px;
-    padding:1px 5px;
-    border-radius:5px;
-    line-height:1.4;
-  }
-  .del-btn:hover{color:var(--danger); background:#f5e3de;}
-  .empty-state{
-    color:var(--muted);
-    font-size:12px;
-    text-align:center;
-    padding:20px 8px;
-  }
-  .detail-header{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    flex-wrap:wrap;
-    gap:8px;
-    margin-bottom:8px;
-  }
-  .detail-title{font-size:14px; font-weight:700;}
-  .detail-tags{
-    display:flex;
-    gap:6px;
-    margin-top:4px;
-    flex-wrap:wrap;
-  }
-  .tag{
-    background:var(--brown-soft);
-    border:1px solid var(--border);
-    color:var(--brown);
-    font-size:10px;
-    padding:2px 8px;
-    border-radius:20px;
-    font-weight:600;
-  }
-  .progress-wrap{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    margin:10px 0 12px 0;
-    background:var(--panel2);
-    border:1px solid var(--border);
-    border-radius:8px;
-    padding:8px 10px;
-  }
-  .progress-pct{
-    font-size:16px;
-    font-weight:800;
-    color:var(--green);
-    flex:0 0 auto;
-    min-width:42px;
-  }
-  .progress-bar-outer{
-    flex:1;
-    height:8px;
-    background:#eee0bf;
-    border-radius:6px;
-    overflow:hidden;
-  }
-  .progress-bar-inner{
-    height:100%;
-    background:linear-gradient(90deg,var(--accent),var(--green));
-    transition:width .35s ease;
-  }
-  .step-list{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:6px;
-  }
-  @media (max-width:520px){
-    .step-list{grid-template-columns:1fr;}
-  }
-  .step{
-    display:flex;
-    align-items:center;
-    gap:7px;
-    background:var(--panel2);
-    border:1px solid var(--border);
-    border-radius:8px;
-    padding:6px 8px;
-    transition:opacity .2s, border-color .2s, background .2s;
-  }
-  .step.done{
-    border-color:var(--green);
-    background:var(--green-soft);
-  }
-  .step.skipped{
-    opacity:.45;
-  }
-  .step-num{
-    font-size:10px;
-    color:var(--muted);
-    width:14px;
-    flex-shrink:0;
-  }
-  .step-name{
-    flex:1;
-    font-size:12px;
-    font-weight:600;
-    line-height:1.2;
-  }
-  .step-name .opt-tag{
-    display:block;
-    font-size:9px;
-    color:var(--brown);
-    margin-top:1px;
-    font-weight:600;
-  }
-  .step-actions{
-    display:flex;
-    align-items:center;
-    gap:5px;
-    flex-shrink:0;
-  }
-  .needed-toggle{
-    font-size:9px;
-    color:var(--muted);
-    background:transparent;
-    border:1px solid var(--border);
-    padding:3px 5px;
-    border-radius:5px;
-    white-space:nowrap;
-  }
-  .needed-toggle.off{
-    color:var(--danger);
-    border-color:#e3c1b8;
-  }
-  .done-btn{
-    font-size:10.5px;
-    font-weight:700;
-    padding:4px 9px;
-    border-radius:6px;
-    background:#fff;
-    border:1px solid var(--border);
-    color:var(--text);
-    white-space:nowrap;
-  }
-  .done-btn.is-done{
-    background:var(--green);
-    color:#2e4a2b;
-    border-color:var(--green);
-  }
-  .done-btn:disabled{
-    opacity:.4;
-    cursor:not-allowed;
-  }
-  .mode-bar{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    background:var(--brown-soft);
-    border:1px solid var(--border);
-    border-radius:8px;
-    padding:7px 10px;
-    margin-bottom:14px;
-    font-size:11.5px;
-    color:var(--brown);
-    font-weight:600;
-  }
-  .mode-bar.editing{
-    background:var(--green-soft);
-    color:#3d5c39;
-  }
-  .btn-unlock{
-    background:#fff;
-    border:1px solid var(--border);
-    color:var(--text);
-    font-size:11px;
-    font-weight:700;
-    padding:5px 10px;
-    border-radius:6px;
-  }
-  .btn-unlock:hover{border-color:var(--accent);}
-  .btn-unlock.on{
-    background:var(--green);
-    color:#2e4a2b;
-    border-color:var(--green);
-  }
-  .loading, .error-box{
-    color:var(--muted);
-    font-size:12px;
-    padding:14px;
-    text-align:center;
-  }
-  .error-box{color:var(--danger);}
-</style>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shipment Import Tracker — PT TNP</title>
+<meta name="description" content="Import shipment tracker for PT TNP">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 </head>
-<body>
-
-<h1>📦 Shipment Tracker</h1>
-<div class="subtitle">Pantau progress dokumen tiap kiriman sampai selesai (SPPB). 🔗 Mode shared — semua orang melihat data yang sama.</div>
-
-<div class="mode-bar" id="modeBar">
-  <span id="modeLabel">🔒 Mode lihat saja</span>
-  <button id="btnToggleEdit" class="btn-unlock">Aktifkan Mode Edit</button>
-</div>
-
-<div class="layout">
-  <div class="sidebar">
-    <div class="card">
-      <h2>+ Kiriman Baru</h2>
-      <label>Nomor Shipment</label>
-      <input type="text" id="inpNomor" placeholder="cth: SHP-2026-0091">
-      <label>Port</label>
-      <input type="text" id="inpPort" placeholder="cth: Tanjung Priok">
-      <label>Incoterms</label>
-      <input type="text" id="inpIncoterms" placeholder="cth: FOB / CIF / CFR">
-      <button class="btn-primary" id="btnAdd">Tambah Kiriman</button>
-    </div>
-
-    <div class="card">
-      <h2>Daftar Kiriman</h2>
-      <div id="shipList" class="ship-list">
-        <div class="loading">Memuat...</div>
-      </div>
-    </div>
+<body class="bg-slate-50 text-slate-800 text-sm">
+<header class="bg-white border-b sticky top-0 z-20">
+ <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+  <div>
+   <h1 class="text-lg font-bold flex items-center gap-2"><i data-lucide="package" class="w-5 h-5 text-blue-600"></i>Shipment Import Tracker — PT TNP</h1>
+   <p class="text-xs text-slate-500">Track import shipments from supplier to warehouse. No customs knowledge needed.</p>
   </div>
-
-  <div class="main">
-    <div class="card" id="detailCard">
-      <div class="empty-state">Pilih atau tambahkan kiriman untuk mulai tracking.</div>
-    </div>
+  <div class="flex flex-wrap items-center gap-2">
+   <span id="modeBadge" class="text-xs px-2 py-1 rounded-full border"></span>
+   <button data-act="guide" class="px-3 py-1.5 rounded-lg border bg-white hover:bg-slate-50 flex items-center gap-1"><i data-lucide="info" class="w-4 h-4"></i>Guide &amp; Import Terms</button>
+   <button id="btnAdd" data-act="add" class="hidden px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>Add New Shipment</button>
+   <button id="btnTeam" data-act="team" class="px-3 py-1.5 rounded-lg bg-slate-800 text-white hover:bg-slate-700 flex items-center gap-1"></button>
   </div>
-</div>
+ </div>
+</header>
+<main class="max-w-7xl mx-auto px-4 py-4 space-y-4">
+ <div id="demo"></div>
+ <div id="kpi" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+ <div class="flex flex-col md:flex-row gap-3 md:items-center">
+  <div class="relative md:w-96"><i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+   <input id="q" placeholder="Search item name, PO no., supplier, or container" class="w-full pl-9 pr-3 py-2 rounded-lg border bg-white outline-none focus:border-blue-500"></div>
+  <div id="tabs" class="flex flex-wrap gap-2"></div>
+ </div>
+ <div class="grid lg:grid-cols-5 gap-4 items-start">
+  <div id="list" class="lg:col-span-2 space-y-2"></div>
+  <div id="detail" class="lg:col-span-3"></div>
+ </div>
+</main>
+<div id="modal"></div>
 
 <script>
-/* ====== PENGATURAN (isi sebelum deploy) ======
-   FIREBASE_URL : URL Firebase Realtime Database, cth "https://nama-proyek-default-rtdb.firebaseio.com"
-                  Kosong = data hanya tersimpan di browser ini (localStorage), TIDAK dibagi ke orang lain.
-   EDIT_PASSCODE: passcode untuk membuka mode edit. Kosong = tanpa passcode.
-   Catatan: passcode ini terlihat di source halaman, jadi hanya pengaman ringan. */
-const CONFIG = { FIREBASE_URL: "https://tracker-shipment-tnp-default-rtdb.asia-southeast1.firebasedatabase.app/", EDIT_PASSCODE: "" };
+/* ====== SETTINGS ======
+   FIREBASE_URL : same as before (the /shipments/<id>.json structure is unchanged). Empty = data stays in this browser only.
+   EDIT_PASSCODE: PIN for Shipping Team Mode. It is visible in the page source, so it is only light protection. */
+const CONFIG = { FIREBASE_URL: "https://tracker-shipment-tnp-default-rtdb.asia-southeast1.firebasedatabase.app/", EDIT_PASSCODE: "TNPSHIPPING" };
 
-const STEP_DEFS = [
-  {key:"invoice", name:"Invoice", optional:false},
-  {key:"packing_list", name:"Packing List", optional:false},
-  {key:"insurance", name:"Insurance", optional:false},
-  {key:"schedule_booking", name:"Schedule Booking", optional:false},
-  {key:"vo", name:"VO", optional:true},
-  {key:"ls", name:"LS", optional:true},
-  {key:"bl_draft", name:"BL Draft", optional:false},
-  {key:"bl_final", name:"BL Final", optional:false},
-  {key:"fe", name:"FE", optional:false},
-  {key:"e_coo", name:"E-COO", optional:false},
-  {key:"pib_draft", name:"PIB Draft", optional:false},
-  {key:"billing", name:"Billing", optional:false},
-  {key:"sppb", name:"SPPB", optional:false}
+const STAGES = [
+ {n:"Document Preparation", ic:"file-text", keys:["invoice","packing_list","schedule_booking","vo"], d:"The Shipping team and supplier prepare the shipping documents. Goods have not departed yet."},
+ {n:"Vessel Departed", ic:"ship", keys:["insurance","ls","bl_draft","bl_final","fe","e_coo"], d:"Goods are loaded onto the vessel and shipping documents are issued."},
+ {n:"Arrived at Port", ic:"anchor", keys:["pib_draft"], d:"Vessel has arrived. The Shipping team prepares the import declaration for Customs."},
+ {n:"Customs Processing", ic:"landmark", keys:["billing"], d:"Import tax is paid and documents are checked by Customs."},
+ {n:"SPPB Issued", ic:"badge-check", keys:["sppb"], d:"Customs release approval is issued. Goods are ready to be sent to the warehouse."},
+ {n:"Arrived at PT TNP Warehouse", ic:"warehouse", keys:["gudang"], d:"Goods are received by the PT TNP warehouse and are ready for use or sale."}
 ];
+const NAMES = {invoice:"Invoice",packing_list:"Packing List",insurance:"Insurance",schedule_booking:"Schedule Booking",vo:"VO",ls:"LS",bl_draft:"BL Draft",bl_final:"BL Final",fe:"FE",e_coo:"E-COO",pib_draft:"PIB Draft",billing:"Billing",sppb:"SPPB",gudang:"Goods received at warehouse"};
+const OPT = ["vo","ls"];
+const ALL = STAGES.flatMap(g=>g.keys);
+const FIELDS = [["barang","Item Name *"],["qty","Qty (e.g. 500 pcs)"],["po","PO No."],["supplier","Supplier"],["kontainer","Container No."],["bl","BL No."],["nomor","Shipment No."],["portAsal","Origin Port"],["port","Destination Port"],["incoterms","Incoterms"],["etaPort","Port ETA","date"],["etaGudang","Estimated Warehouse Arrival","date"]];
+const TONE = {emerald:"bg-emerald-50 text-emerald-700 border-emerald-200",rose:"bg-rose-50 text-rose-700 border-rose-200",amber:"bg-amber-50 text-amber-700 border-amber-200",blue:"bg-blue-50 text-blue-700 border-blue-200",slate:"bg-slate-100 text-slate-600 border-slate-200"};
+const KCOL = {blue:"text-blue-600 bg-blue-50",indigo:"text-indigo-600 bg-indigo-50",rose:"text-rose-600 bg-rose-50",emerald:"text-emerald-600 bg-emerald-50"};
+const GLOSS = [["PIB","Import Declaration (Pemberitahuan Impor Barang): the official form filed with Customs stating that goods will enter Indonesia."],["BL","Bill of Lading: the shipping line's document proving the goods were shipped, used to claim the goods."],["Billing / Tax","Import duty and tax that must be paid before goods may leave the port."],["Green Lane","Goods are processed without inspection. Fastest."],["Yellow Lane (SPJK)","Documents are checked by Customs; goods are not opened. May add time."],["Red Lane (SPJM)","Goods are opened and physically inspected. Potential delay of 2-4 days."],["SPPB","Customs release approval (Surat Persetujuan Pengeluaran Barang): the official permission for goods to leave the port."]];
 
-const base = (CONFIG.FIREBASE_URL || "").replace(/\/+$/, "");
-const useRemote = !!base;
-let shipments = [];
-let activeId = null;
-let canWrite = false;
+const DAY = 864e5;
+const S = {ships:[], active:null, f:"all", q:"", team:false, modal:"", demo:false, err:false};
+const $ = id => document.getElementById(id);
+const esc = v => String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const iso = off => new Date(Date.now()+off*DAY).toISOString().slice(0,10);
+const fmt = s => s ? new Date(s+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "Not set";
+const fmtT = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
 
-function normalize(raw, id){
-  const s = JSON.parse(JSON.stringify(raw || {}));
-  s.id = id;
-  s.steps = s.steps || {};
-  STEP_DEFS.forEach(d=>{ if(!s.steps[d.key]) s.steps[d.key] = { done:false, needed:true }; });
-  return s;
+/* ---- status logic ---- */
+const prog = s => STAGES.map(g=>{
+ const k = g.keys.filter(x=>!(OPT.includes(x) && !s.steps[x].needed));
+ const d = k.filter(x=>s.steps[x].done).length;
+ return {d, t:k.length, ok:k.length>0 && d===k.length};
+});
+const cur = s => { const i = prog(s).findIndex(x=>!x.ok); return i<0 ? 6 : i; };
+const bad = s => s.jalur==="merah" || !!s.kendala;
+function status(s){
+ const c = cur(s);
+ if(c===6) return {t:"Arrived at Warehouse", b:"Completed", tone:"emerald"};
+ if(s.jalur==="merah") return {t:"Physical Customs Inspection — Possible 2-4 Day Delay", b:"SPJM / Red Lane", tone:"rose"};
+ if(s.kendala) return {t:"Issue Reported — Shipping Team Is Handling It", b:"Issue", tone:"rose"};
+ if(s.jalur==="kuning" && c<5) return {t:"Customs Document Check", b:"SPJK / Yellow Lane", tone:"amber"};
+ return [
+  {t:"Preparing Shipping Documents", b:"Invoice & Packing List", tone:"slate"},
+  {t:"In Transit by Sea", b:"Port ETA", tone:"blue"},
+  {t:"Arrived at Port — Preparing Import Declaration", b:"PIB Draft", tone:"blue"},
+  {t:"Paying Import Tax", b:"Billing PIB", tone:"amber"},
+  {t:"Waiting for Customs Release", b:"Awaiting SPPB", tone:"amber"},
+  {t:"Ready to Ship to Warehouse", b:"SPPB Issued", tone:"emerald"}
+ ][c];
 }
-function newShipment(nomor, port, incoterms){
-  const steps = {};
-  STEP_DEFS.forEach(s=>{ steps[s.key] = { done:false, needed:true }; });
-  return { id:"ship_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), nomor, port, incoterms, steps, createdAt:Date.now() };
+const cat = s => { const c = cur(s); return c===6 ? "selesai" : c===5 ? "siap" : c>=2 ? "bc" : "jalan"; };
+const wk = s => {
+ if(!s.etaGudang) return false;
+ const t = new Date(); t.setHours(0,0,0,0);
+ const m = new Date(+t - ((t.getDay()+6)%7)*DAY), d = new Date(s.etaGudang+"T00:00:00");
+ return d>=m && d<new Date(+m+7*DAY);
+};
+const mon = s => { if(!s.gudangAt) return false; const a=new Date(s.gudangAt), n=new Date(); return a.getMonth()===n.getMonth() && a.getFullYear()===n.getFullYear(); };
+const match = (s,f) => ({
+ all:true, aktif:cur(s)<6, jalan:cat(s)==="jalan", bc:cat(s)==="bc",
+ kendala:bad(s)&&cur(s)<6, siap:cat(s)==="siap"||cat(s)==="selesai", minggu:wk(s), selesai:cur(s)===6&&mon(s)
+}[f]);
+const hay = s => [s.barang,s.po,s.supplier,s.kontainer,s.nomor,s.bl].join(" ").toLowerCase();
+const visible = () => S.ships.filter(s=>match(s,S.f) && hay(s).includes(S.q))
+ .sort((a,b)=>(a.etaGudang||"9").localeCompare(b.etaGudang||"9"));
+
+function normalize(raw,id){
+ const s = JSON.parse(JSON.stringify(raw||{}));
+ s.id = id; s.steps = s.steps||{}; s.notes = s.notes||[];
+ ALL.forEach(k=>{ if(!s.steps[k]) s.steps[k] = {done:false, needed:true}; });
+ return s;
 }
 
-/* ---- penyimpanan ---- */
-function saveLocal(){ try{ localStorage.setItem("shipments", JSON.stringify(shipments)); }catch(e){} }
+/* ---- sample data ---- */
+function DEMO(){
+ const mk = (id,barang,qty,po,sup,kont,bl,asal,port,inco,ep,eg,n,x={},notes=[])=>{
+  const steps = {}; ALL.forEach(k=>steps[k]={done:false,needed:true});
+  STAGES.slice(0,n).forEach(g=>g.keys.forEach(k=>steps[k].done=true));
+  (x.done||[]).forEach(k=>steps[k].done=true);
+  (x.skip||[]).forEach(k=>steps[k]={done:false,needed:false});
+  return {id:"demo"+id, demo:true, barang, qty, po, supplier:sup, kontainer:kont, bl, portAsal:asal, port, incoterms:inco,
+   etaPort:iso(ep), etaGudang:iso(eg), nomor:"SHP-2611-00"+id, steps, jalur:x.j||"", kendala:x.k||"", gudangAt:x.g||"",
+   notes:notes.map(([o,t])=>({t:Date.now()+o*DAY, text:t})), createdAt:Date.now()-id*1000};
+ };
+ return [
+  mk(1,"SKF 6205 Industrial Bearing","12,000 pcs","PO-2611-0142","SKF Asia Pte Ltd","MSKU7821045","MAEU218834091","Singapore","Tanjung Priok","CIF",-9,2,5,{j:"hijau"},[[-0.1,"SPPB issued, waiting for the truck schedule from the warehouse."],[-0.5,"Billing has been paid."]]),
+  mk(2,"Stainless Steel 304 (2B) Plate","18 tons","PO-2611-0097","Shanghai Hengda Metal Co.","TGHU5530918","COSU6392015","Shanghai","Tanjung Priok","CFR",-6,6,3,{done:["billing"],j:"merah",k:"Physical inspection scheduled; Customs requested additional documents."},[[-0.2,"The supplier is preparing the additional documents."],[-1,"Billing paid, selected for the red lane."]]),
+  mk(3,"Rexroth A10VSO Hydraulic Pump","6 units","PO-2611-0121","Bosch Rexroth Asia","CAIU8814427","ONEYSGNA55120","Singapore","Tanjung Perak","FOB",4,9,1,{done:["bl_draft","bl_final","fe"]},[[-2,"Vessel departed from Singapore."]]),
+  mk(4,"Resin Polypropylene Granule","24 tons","PO-2611-0110","Lotte Chemical Singapore","TCNU2290561","EGLV142688431","Singapore","Tanjung Priok","CIF",-2,5,3,{},[[-0.3,"PIB has been filed, waiting for the billing code."]]),
+  mk(5,"Packaging Machine Spare Parts","3 crates","PO-2610-0188","Guangzhou Packtech Ltd","FCIU3320094","HLCUGZH2610771","Guangzhou","Tanjung Priok","FOB",-14,-3,6,{j:"hijau",g:new Date(Date.now()-3*DAY).toISOString()},[[-3,"Goods received at the warehouse in good condition."]]),
+  mk(6,"Corrugated Carton Rolls","40 rolls","PO-2611-0150","Dongguan Paper Mills","-","-","Shenzhen","Tanjung Priok","FOB",18,23,0,{done:["invoice","packing_list"],skip:["vo","ls"]},[[-0.4,"Invoice and packing list received, waiting for schedule booking."]])
+ ];
+}
+
+/* ---- storage (same Firebase structure as before) ---- */
+const base = (CONFIG.FIREBASE_URL||"").replace(/\/+$/,"");
+const remote = !!base;
+const saveLocal = () => { try{ localStorage.setItem("shipments", JSON.stringify(S.ships.filter(x=>!x.demo))); }catch(e){} };
 async function loadAll(){
-  try{
-    if(useRemote){
-      const r = await fetch(base + "/shipments.json");
-      const o = await r.json();
-      return o ? Object.keys(o).map(k=>normalize(o[k], k)) : [];
-    }
-    const raw = localStorage.getItem("shipments");
-    return (raw ? JSON.parse(raw) : []).map(s=>normalize(s, s.id));
-  }catch(e){ return null; }
+ try{
+  if(remote){ const o = await (await fetch(base+"/shipments.json")).json(); return o ? Object.keys(o).map(k=>normalize(o[k],k)) : []; }
+  const raw = localStorage.getItem("shipments");
+  return (raw ? JSON.parse(raw) : []).map(s=>normalize(s,s.id));
+ }catch(e){ return null; }
 }
-async function persist(ship){
-  if(!canWrite) return;
-  try{
-    if(useRemote) await fetch(base + "/shipments/" + ship.id + ".json", {method:"PUT", body:JSON.stringify(ship)});
-    else saveLocal();
-  }catch(e){}
+async function save(s){
+ if(s.demo || !S.team) return;
+ try{ if(remote) await fetch(base+"/shipments/"+s.id+".json",{method:"PUT",body:JSON.stringify(s)}); else saveLocal(); }catch(e){}
 }
 async function removeShip(id){
-  shipments = shipments.filter(s=>s.id!==id);
-  try{
-    if(useRemote) await fetch(base + "/shipments/" + id + ".json", {method:"DELETE"});
-    else saveLocal();
-  }catch(e){}
+ S.ships = S.ships.filter(s=>s.id!==id);
+ try{ if(remote) await fetch(base+"/shipments/"+id+".json",{method:"DELETE"}); else saveLocal(); }catch(e){}
 }
 async function refresh(){
-  const data = await loadAll();
-  if(data === null) return;
-  shipments = data;
-  if(!shipments.some(s=>s.id===activeId)){
-    const n = shipments.slice().sort((a,b)=>b.createdAt-a.createdAt)[0];
-    activeId = n ? n.id : null;
-  }
-  renderList(); renderDetail();
+ const ae = document.activeElement;
+ if(ae && ae.closest && ae.closest("#detail,#modal")) return;
+ const d = await loadAll();
+ if(d===null){ if(!S.ships.length){ S.ships = DEMO(); S.demo = true; S.err = true; } }
+ else if(d.length){ S.ships = d; S.demo = false; S.err = false; }
+ else if(!S.ships.some(x=>!x.demo)){ S.ships = DEMO(); S.demo = true; S.err = false; }
+ if(!S.ships.some(x=>x.id===S.active)){ const v = visible()[0] || S.ships[0]; S.active = v ? v.id : null; }
+ draw();
 }
 
-/* ---- tampilan ---- */
-function calcProgress(ship){
-  let total = 0, done = 0;
-  STEP_DEFS.forEach(s=>{
-    const st = ship.steps[s.key];
-    if(s.optional && !st.needed) return;
-    total++;
-    if(st.done) done++;
-  });
-  return total === 0 ? 0 : Math.min(100, Math.round((done/total)*100));
+/* ---- UI ---- */
+function bar(s){
+ const p = prog(s), c = cur(s);
+ return `<div class="flex gap-1">${p.slice(0,5).map((x,i)=>`<div class="h-2 flex-1 rounded-full ${x.ok?"bg-emerald-500":i===c?(bad(s)?"bg-rose-400":i>=2?"bg-amber-400":"bg-blue-400"):"bg-slate-200"}"></div>`).join("")}</div>`;
 }
-function escapeHtml(str){
-  const d = document.createElement("div");
-  d.innerText = str == null ? "" : String(str);
-  return d.innerHTML;
+function card(s){
+ const st = status(s);
+ return `<button data-act="sel" data-id="${s.id}" class="w-full text-left bg-white rounded-xl border p-3 hover:shadow-sm ${s.id===S.active?"ring-2 ring-blue-500":""}">
+  <div class="flex justify-between gap-2"><div class="font-semibold">${esc(s.barang||s.nomor)}</div><div class="text-xs text-slate-500 whitespace-nowrap">${esc(s.qty||"")}</div></div>
+  <div class="text-xs text-slate-500">PO ${esc(s.po||"-")} • ${esc(s.supplier||"-")}</div>
+  <div class="mt-2 text-sm font-medium">${st.t}</div>
+  <span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full border ${TONE[st.tone]}">${st.b}</span>
+  <div class="mt-2">${bar(s)}</div>
+  <div class="mt-2 flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-lg px-2 py-1.5 font-semibold"><i data-lucide="warehouse" class="w-4 h-4"></i>Estimated warehouse arrival: ${fmt(s.etaGudang)}</div>
+  <div class="text-[11px] text-slate-400 mt-1">Port ETA: ${fmt(s.etaPort)}</div></button>`;
 }
-function updateModeBar(){
-  const bar = document.getElementById("modeBar");
-  const btn = document.getElementById("btnToggleEdit");
-  const addBtn = document.getElementById("btnAdd");
-  bar.classList.toggle("editing", canWrite);
-  btn.classList.toggle("on", canWrite);
-  document.getElementById("modeLabel").textContent = canWrite ? "✏️ Mode edit aktif" : "🔒 Mode lihat saja";
-  btn.textContent = canWrite ? "Kunci (Mode Lihat)" : "Aktifkan Mode Edit";
-  addBtn.disabled = !canWrite;
-  addBtn.style.opacity = canWrite ? 1 : .5;
+function detail(s){
+ const E = S.team, st = status(s), c = cur(s), p = prog(s);
+ const ident = [["Container No.",s.kontainer],["BL No.",s.bl],["Shipment No.",s.nomor],["Origin Port",s.portAsal],["Destination Port",s.port],["Incoterms",s.incoterms]]
+  .map(([k,v])=>`<div><div class="text-xs text-slate-500">${k}</div><div class="font-medium">${esc(v||"-")}</div></div>`).join("");
+ const ctl = E ? `<div class="rounded-lg border border-dashed p-3 grid sm:grid-cols-2 gap-3">
+  <label class="text-xs text-slate-500">Customs Lane<select data-f="jalur" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800 bg-white">${[["","None yet"],["hijau","Green Lane"],["kuning","Yellow Lane (SPJK)"],["merah","Red Lane (SPJM)"]].map(([v,l])=>`<option value="${v}" ${s.jalur===v?"selected":""}>${l}</option>`).join("")}</select></label>
+  <label class="text-xs text-slate-500">Issue (leave empty if none)<input data-f="kendala" value="${esc(s.kendala||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
+  <label class="text-xs text-slate-500">Port ETA<input type="date" data-f="etaPort" value="${esc(s.etaPort||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
+  <label class="text-xs text-slate-500">Estimated Warehouse Arrival<input type="date" data-f="etaGudang" value="${esc(s.etaGudang||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label></div>` : "";
+ const tl = STAGES.map((g,i)=>{
+  const done = i<6 && (i===5 ? c===6 : p[i].ok), now = i===c;
+  const docs = g.keys.map(k=>{
+   const m = s.steps[k], skip = OPT.includes(k) && !m.needed;
+   return `<div class="flex items-center justify-between gap-2 py-1 ${skip?"opacity-50":""}"><span class="flex items-center gap-1.5 ${m.done?"text-emerald-700":""}"><i data-lucide="${m.done?"circle-check":"circle"}" class="w-4 h-4"></i>${NAMES[k]}${skip?" (not required)":""}</span>
+   ${E?`<span class="flex gap-1">${OPT.includes(k)?`<button data-act="nd" data-k="${k}" class="text-[11px] px-2 py-0.5 rounded border">${m.needed?"Not needed":"Needed"}</button>`:""}<button data-act="tg" data-k="${k}" ${skip?"disabled":""} class="text-[11px] px-2 py-0.5 rounded border ${m.done?"bg-emerald-500 text-white border-emerald-500":"bg-white"}">${m.done?"Done":"Mark done"}</button></span>`:""}</div>`;
+  }).join("");
+  return `<div class="flex gap-3"><div class="flex flex-col items-center"><div class="w-8 h-8 rounded-full flex items-center justify-center ${done?"bg-emerald-500 text-white":now?"bg-blue-600 text-white ring-4 ring-blue-100":"bg-slate-200 text-slate-500"}"><i data-lucide="${done?"check":g.ic}" class="w-4 h-4"></i></div>${i<5?`<div class="w-px flex-1 ${done?"bg-emerald-300":"bg-slate-200"}"></div>`:""}</div>
+  <div class="pb-4 flex-1"><div class="font-semibold">${i+1}. ${g.n}${now?` <span class="text-xs text-blue-600 font-medium">• current stage</span>`:""}</div><p class="text-xs text-slate-500">${g.d}</p><div class="mt-1 text-xs">${docs}</div></div></div>`;
+ }).join("");
+ const notes = [...s.notes].sort((a,b)=>b.t-a.t).map(n=>`<div class="border-l-2 border-blue-300 pl-3 py-1"><div class="text-xs text-slate-500">${fmtT(n.t)}</div><div>${esc(n.text)}</div></div>`).join("") || `<div class="text-slate-400 text-xs">No notes yet.</div>`;
+ const form = E ? `<div class="flex gap-2"><textarea id="noteIn" rows="2" placeholder="Write an update for all employees..." class="flex-1 border rounded-lg px-2 py-1.5"></textarea><button data-act="note" class="px-3 rounded-lg bg-blue-600 text-white">Post</button></div>` : "";
+ return `<div class="bg-white rounded-xl border p-4 space-y-4">
+  <div class="flex justify-between gap-2"><div><h2 class="text-lg font-bold">${esc(s.barang||s.nomor)} <span class="text-sm font-normal text-slate-500">${esc(s.qty||"")}</span></h2><p class="text-slate-500">PO ${esc(s.po||"-")} • ${esc(s.supplier||"-")}</p></div>
+  ${E?`<button data-act="del" title="Delete shipment" class="text-slate-400 hover:text-rose-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`:""}</div>
+  <div class="rounded-lg border p-3 ${TONE[st.tone]}"><div class="font-semibold">${st.t}</div><div class="text-xs">Technical term: ${st.b}</div>${s.kendala?`<div class="mt-1">Issue: ${esc(s.kendala)}</div>`:""}</div>
+  <div class="grid grid-cols-2 gap-3"><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">Port ETA</div><div class="font-semibold">${fmt(s.etaPort)}</div></div>
+  <div class="rounded-lg bg-indigo-50 p-3"><div class="text-xs text-indigo-600">Estimated Arrival at PT TNP Warehouse</div><div class="text-base font-bold text-indigo-700">${fmt(s.etaGudang)}</div></div></div>
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${ident}</div>${ctl}
+  <div><h3 class="font-semibold mb-2">Shipment Progress</h3>${tl}</div>
+  <div><h3 class="font-semibold mb-2">Updates from the Shipping Team</h3><div class="space-y-2 mb-3">${notes}</div>${form}</div></div>`;
 }
-function renderList(){
-  const container = document.getElementById("shipList");
-  if(shipments.length === 0){
-    container.innerHTML = '<div class="empty-state">Belum ada kiriman.</div>';
-    return;
-  }
-  container.innerHTML = "";
-  shipments.slice().sort((a,b)=>b.createdAt-a.createdAt).forEach(ship=>{
-    const pct = calcProgress(ship);
-    const div = document.createElement("div");
-    div.className = "ship-item" + (ship.id===activeId ? " active" : "");
-    div.innerHTML = `
-      ${canWrite ? `<button class="del-btn" data-id="${ship.id}" title="Hapus">✕</button>` : ''}
-      <div class="name">${escapeHtml(ship.nomor || "(tanpa nomor)")}</div>
-      <div class="meta">${escapeHtml(ship.port||"-")} · ${escapeHtml(ship.incoterms||"-")}</div>
-      <div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%"></div></div>
-      <div class="pct">${pct}%</div>`;
-    div.addEventListener("click", (e)=>{
-      if(e.target.closest(".del-btn")) return;
-      activeId = ship.id; renderList(); renderDetail();
-    });
-    container.appendChild(div);
-  });
-  container.querySelectorAll(".del-btn").forEach(btn=>{
-    btn.addEventListener("click", async (e)=>{
-      e.stopPropagation();
-      if(!canWrite) return;
-      if(!confirm("Hapus kiriman ini beserta semua progress-nya?")) return;
-      await removeShip(btn.getAttribute("data-id"));
-      if(!shipments.some(s=>s.id===activeId)) activeId = shipments.length ? shipments[0].id : null;
-      renderList(); renderDetail();
-    });
-  });
+const wrap = (title,body) => `<div data-act="close" class="fixed inset-0 z-30 bg-slate-900/50 flex items-start justify-center p-4 overflow-y-auto"><div data-act="x" class="bg-white rounded-xl w-full max-w-2xl p-5 mt-8"><div class="flex justify-between mb-3"><h2 class="text-lg font-bold">${title}</h2><button data-act="close"><i data-lucide="x" class="w-5 h-5"></i></button></div>${body}</div></div>`;
+function modal(){
+ if(S.modal==="guide") return wrap("Guide &amp; Import Terms",
+  `<div class="flex flex-wrap items-center gap-1 text-xs mb-4">${["Document Preparation","Vessel Departed","Arrived at Port","Customs Processing","SPPB Issued","Arrived at PT TNP Warehouse"].map((n,i)=>`${i?'<i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>':""}<span class="px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">${i+1}. ${n}</span>`).join("")}</div>
+  <div class="space-y-2">${GLOSS.map(([k,v])=>`<div class="rounded-lg bg-slate-50 p-2"><b>${k}</b><div class="text-slate-600">${v}</div></div>`).join("")}</div>`);
+ if(S.modal==="add") return wrap("Add New Shipment",
+  `<div class="grid sm:grid-cols-2 gap-3">${FIELDS.map(([k,l,t])=>`<label class="text-xs text-slate-500">${l}<input id="f_${k}" type="${t||"text"}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>`).join("")}</div>
+  <button data-act="submit" class="mt-4 w-full py-2 rounded-lg bg-blue-600 text-white font-semibold">Save Shipment</button>`);
+ return "";
 }
-function renderDetail(){
-  const card = document.getElementById("detailCard");
-  const ship = shipments.find(s=>s.id===activeId);
-  if(!ship){
-    card.innerHTML = '<div class="empty-state">Pilih atau tambahkan kiriman untuk mulai tracking.</div>';
-    return;
-  }
-  const pct = calcProgress(ship);
-  let stepsHtml = "";
-  STEP_DEFS.forEach((s, idx)=>{
-    const st = ship.steps[s.key];
-    const isSkipped = s.optional && !st.needed;
-    stepsHtml += `
-      <div class="step ${st.done?'done':''} ${isSkipped?'skipped':''}">
-        <div class="step-num">${idx+1}</div>
-        <div class="step-name">${s.name}${s.optional?'<span class="opt-tag">if needed</span>':''}</div>
-        <div class="step-actions">
-          ${s.optional ? `<button class="needed-toggle ${st.needed?'':'off'}" data-key="${s.key}" data-action="toggle-needed" ${canWrite?'':'disabled'}>${st.needed?'perlu':'skip'}</button>` : ''}
-          <button class="done-btn ${st.done?'is-done':''}" data-key="${s.key}" data-action="toggle-done" ${(isSkipped||!canWrite)?'disabled':''}>${st.done?'✓':'Done'}</button>
-        </div>
-      </div>`;
-  });
-  card.innerHTML = `
-    <div class="detail-header"><div>
-      <div class="detail-title">${escapeHtml(ship.nomor||"(tanpa nomor)")}</div>
-      <div class="detail-tags">
-        <span class="tag">Port: ${escapeHtml(ship.port||"-")}</span>
-        <span class="tag">Incoterms: ${escapeHtml(ship.incoterms||"-")}</span>
-      </div>
-    </div></div>
-    <div class="progress-wrap">
-      <div class="progress-pct">${pct}%</div>
-      <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:${pct}%"></div></div>
-    </div>
-    <div class="step-list">${stepsHtml}</div>`;
-  card.querySelectorAll('[data-action="toggle-done"]').forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const k = btn.getAttribute("data-key");
-      ship.steps[k].done = !ship.steps[k].done;
-      persist(ship); renderList(); renderDetail();
-    });
-  });
-  card.querySelectorAll('[data-action="toggle-needed"]').forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const k = btn.getAttribute("data-key");
-      ship.steps[k].needed = !ship.steps[k].needed;
-      if(!ship.steps[k].needed) ship.steps[k].done = false;
-      persist(ship); renderList(); renderDetail();
-    });
-  });
+function draw(){
+ $("demo").innerHTML = S.demo ? `<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">This is <b>sample data</b>${S.err?" (database not connected)":""}. It disappears automatically once the first shipment is added.</div>` : "";
+ $("modeBadge").className = "text-xs px-2 py-1 rounded-full border " + (S.team ? TONE.emerald : TONE.slate);
+ $("modeBadge").textContent = S.team ? "Shipping Team Mode" : "View-Only Mode (All Employees)";
+ $("btnTeam").innerHTML = `<i data-lucide="${S.team?"lock":"lock-open"}" class="w-4 h-4"></i>${S.team?"Exit Shipping Team Mode":"Shipping Team Mode"}`;
+ $("btnAdd").classList.toggle("hidden", !S.team);
+ const K = [["aktif","Active Shipments","package","blue"],["minggu","Arriving at Warehouse This Week","warehouse","indigo"],["kendala","Needs Attention / Delayed","triangle-alert","rose"],["selesai","Completed This Month","circle-check","emerald"]];
+ $("kpi").innerHTML = K.map(([f,l,ic,c])=>`<button data-act="flt" data-f="${f}" class="text-left bg-white rounded-xl border p-3 flex items-center gap-3 hover:shadow-sm ${S.f===f?"ring-2 ring-slate-700":""}"><div class="p-2 rounded-lg ${KCOL[c]}"><i data-lucide="${ic}" class="w-5 h-5"></i></div><div><div class="text-2xl font-bold">${S.ships.filter(s=>match(s,f)).length}</div><div class="text-xs text-slate-500">${l}</div></div></button>`).join("");
+ $("tabs").innerHTML = [["all","All"],["jalan","In Transit"],["bc","Customs Processing"],["kendala","Delayed (Red Lane)"],["siap","Ready / At Warehouse"]]
+  .map(([f,l])=>`<button data-act="flt" data-f="${f}" class="px-3 py-1.5 rounded-full border ${S.f===f?"bg-slate-800 text-white border-slate-800":"bg-white"}">${l}</button>`).join("");
+ const v = visible();
+ $("list").innerHTML = v.length ? v.map(card).join("") : `<div class="text-center text-slate-400 py-10">No matching shipments.</div>`;
+ const s = S.ships.find(x=>x.id===S.active);
+ $("detail").innerHTML = s ? detail(s) : `<div class="bg-white rounded-xl border p-10 text-center text-slate-400">Select a shipment from the list to see its details.</div>`;
+ $("modal").innerHTML = modal();
+ if(window.lucide) lucide.createIcons();
 }
 
-document.getElementById("btnToggleEdit").addEventListener("click", ()=>{
-  if(canWrite){ canWrite = false; }
-  else{
-    if(CONFIG.EDIT_PASSCODE){
-      const p = prompt("Masukkan passcode edit:");
-      if(p !== CONFIG.EDIT_PASSCODE) return;
-    }
-    canWrite = true;
-  }
-  updateModeBar(); renderList(); renderDetail();
+/* ---- interactions ---- */
+const act = () => S.ships.find(x=>x.id===S.active);
+document.addEventListener("click", e=>{
+ const el = e.target.closest("[data-act]"); if(!el) return;
+ const a = el.dataset.act, s = act();
+ if(a==="sel"){ S.active = el.dataset.id; draw(); if(innerWidth<1024) $("detail").scrollIntoView({behavior:"smooth"}); }
+ else if(a==="flt"){ S.f = el.dataset.f; draw(); }
+ else if(a==="guide"){ S.modal = "guide"; draw(); }
+ else if(a==="add"){ S.modal = "add"; draw(); }
+ else if(a==="close"){ S.modal = ""; draw(); }
+ else if(a==="team"){
+  if(S.team) S.team = false;
+  else{ if(CONFIG.EDIT_PASSCODE && prompt("Enter Shipping Team PIN:")!==CONFIG.EDIT_PASSCODE){ alert("Incorrect PIN."); return; } S.team = true; }
+  draw();
+ }
+ else if(a==="tg" && s && S.team){ const m = s.steps[el.dataset.k]; m.done = !m.done; if(el.dataset.k==="gudang"){ if(m.done) s.gudangAt = new Date().toISOString(); else delete s.gudangAt; } save(s); draw(); }
+ else if(a==="nd" && s && S.team){ const m = s.steps[el.dataset.k]; m.needed = !m.needed; if(!m.needed) m.done = false; save(s); draw(); }
+ else if(a==="note" && s && S.team){ const t = $("noteIn").value.trim(); if(!t) return; s.notes.push({t:Date.now(), text:t}); save(s); draw(); }
+ else if(a==="del" && s && S.team){ if(confirm("Delete this shipment along with all its progress and notes?")){ removeShip(s.id).then(()=>{ S.active = null; refresh(); }); } }
+ else if(a==="submit"){
+  const v = {}; FIELDS.forEach(([k])=>v[k] = $("f_"+k).value.trim());
+  if(!v.barang){ alert("Item name is required."); return; }
+  const steps = {}; ALL.forEach(k=>steps[k] = {done:false, needed:true});
+  const sh = {...v, id:"ship_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), steps, jalur:"", kendala:"", notes:[], createdAt:Date.now()};
+  S.ships = S.ships.filter(x=>!x.demo); S.demo = false; S.ships.push(sh); S.active = sh.id; S.modal = "";
+  save(sh); draw();
+ }
 });
-document.getElementById("btnAdd").addEventListener("click", ()=>{
-  if(!canWrite) return;
-  const nomor = document.getElementById("inpNomor").value.trim();
-  const port = document.getElementById("inpPort").value.trim();
-  const incoterms = document.getElementById("inpIncoterms").value.trim();
-  if(!nomor){ alert("Nomor shipment wajib diisi."); return; }
-  const ship = newShipment(nomor, port, incoterms);
-  shipments.push(ship);
-  activeId = ship.id;
-  ["inpNomor","inpPort","inpIncoterms"].forEach(i=>{ document.getElementById(i).value = ""; });
-  persist(ship); renderList(); renderDetail();
+document.addEventListener("change", e=>{
+ const f = e.target.dataset && e.target.dataset.f, s = act();
+ if(!f || !s || !S.team || e.target.closest("#kpi,#tabs")) return;
+ s[f] = e.target.value; save(s); draw();
 });
+$("q").addEventListener("input", e=>{ S.q = e.target.value.toLowerCase().trim(); draw(); });
 
-updateModeBar();
+draw();
 refresh();
-if(useRemote) setInterval(()=>{ if(!document.hidden) refresh(); }, 15000);
+if(remote) setInterval(()=>{ if(!document.hidden) refresh(); }, 15000);
 </script>
 </body>
 </html>
