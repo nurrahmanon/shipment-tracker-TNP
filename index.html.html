@@ -17,8 +17,10 @@
    <p class="text-xs text-slate-500">Track import shipments from supplier to warehouse. No customs knowledge needed.</p>
   </div>
   <div class="flex flex-wrap items-center gap-2">
-   <span id="syncBadge" class="hidden text-xs px-2 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200"></span>
+   <span id="sheetBadge" class="hidden text-xs px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1"></span>
    <span id="modeBadge" class="text-xs px-2 py-1 rounded-full border"></span>
+   <button id="btnSyncSheet" data-act="refreshSheet" class="hidden px-3 py-1.5 rounded-lg border bg-white hover:bg-slate-50 flex items-center gap-1 text-slate-700"><i data-lucide="refresh-cw" class="w-4 h-4"></i>Refresh Sheet</button>
+   <button id="btnSheetCfg" data-act="sheetCfg" class="hidden px-3 py-1.5 rounded-lg border bg-white hover:bg-slate-50 flex items-center gap-1 text-slate-700"><i data-lucide="link" class="w-4 h-4"></i>Sheet URL</button>
    <button data-act="guide" class="px-3 py-1.5 rounded-lg border bg-white hover:bg-slate-50 flex items-center gap-1"><i data-lucide="info" class="w-4 h-4"></i>Guide &amp; Import Terms</button>
    <button id="btnAdd" data-act="add" class="hidden px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>Add New Shipment</button>
    <button id="btnTeam" data-act="team" class="px-3 py-1.5 rounded-lg bg-slate-800 text-white hover:bg-slate-700 flex items-center gap-1"></button>
@@ -42,12 +44,12 @@
 
 <script>
 /* ====== SETTINGS ======
-   FIREBASE_URL            : Firebase Realtime Database URL (/shipments/<id>.json).
-   GOOGLE_SHEET_WEBHOOK_URL: Paste your Google Apps Script Web App URL here to sync SKU, Product Name & QTY automatically.
-   EDIT_PASSCODE           : PIN for Shipping Team Mode. */
+   FIREBASE_URL        : Firebase Realtime Database URL (/shipments/<id>.json).
+   GOOGLE_SHEET_API_URL: Paste your Google Apps Script Web App URL (doGet) here so SKU, Product Name & QTY auto-load for all employees.
+   EDIT_PASSCODE       : PIN for Shipping Team Mode. */
 const CONFIG = {
  FIREBASE_URL: "https://tracker-shipment-tnp-default-rtdb.asia-southeast1.firebasedatabase.app/",
- GOOGLE_SHEET_WEBHOOK_URL: "https://script.google.com/a/macros/tnpgroup.co/s/AKfycby-CceWy4ZBMacz_U0gFQ9DFyqBr5eFDoN2FYInhwI31kIAtxfD0vQXw-92dtLM6Jo/exec",
+ GOOGLE_SHEET_API_URL: "https://script.google.com/macros/s/AKfycbzL-9XVw-gsido0qqYsiGpPvZf2tJ152YpZFSem37fsrwN1b1FAcFebA93NN5UE0omc/exec",
  EDIT_PASSCODE: "TNPSHIPPING"
 };
 
@@ -62,29 +64,43 @@ const STAGES = [
 const NAMES = {invoice:"Invoice",packing_list:"Packing List",insurance:"Insurance",schedule_booking:"Schedule Booking",vo:"VO",ls:"LS",bl_draft:"BL Draft",bl_final:"BL Final",fe:"FE",e_coo:"E-COO",pib_draft:"PIB Draft",billing:"Billing",sppb:"SPPB",gudang:"Goods received at warehouse"};
 const OPT = ["vo","ls"];
 const ALL = STAGES.flatMap(g=>g.keys);
-const FIELDS = [["po","PO No."],["supplier","Supplier"],["kontainer","Container No."],["bl","BL No."],["nomor","Shipment No."],["portAsal","Origin Port"],["port","Destination Port"],["incoterms","Incoterms"],["etd","ETD (Departure Date)","date"],["etaPort","Port ETA","date"],["etaGudang","Estimated Warehouse Arrival","date"]];
+const FIELDS = [["barang","Item Summary / Title *"],["qty","Total Qty (e.g. 500 pcs)"],["po","PO No. (Match with Google Sheet)"],["supplier","Supplier"],["kontainer","Container No."],["bl","BL No."],["nomor","Shipment No. (Match with Google Sheet)"],["portAsal","Origin Port"],["port","Destination Port"],["incoterms","Incoterms"],["etd","ETD (Departure Date)","date"],["etaPort","Port ETA","date"],["etaGudang","Estimated Warehouse Arrival","date"]];
 const TONE = {emerald:"bg-emerald-50 text-emerald-700 border-emerald-200",rose:"bg-rose-50 text-rose-700 border-rose-200",amber:"bg-amber-50 text-amber-700 border-amber-200",blue:"bg-blue-50 text-blue-700 border-blue-200",slate:"bg-slate-100 text-slate-600 border-slate-200"};
 const KCOL = {blue:"text-blue-600 bg-blue-50",indigo:"text-indigo-600 bg-indigo-50",rose:"text-rose-600 bg-rose-50",emerald:"text-emerald-600 bg-emerald-50"};
 const GLOSS = [["PIB","Import Declaration (Pemberitahuan Impor Barang): the official form filed with Customs stating that goods will enter Indonesia."],["BL","Bill of Lading: the shipping line's document proving the goods were shipped, used to claim the goods."],["Billing / Tax","Import duty and tax that must be paid before goods may leave the port."],["Green Lane","Goods are processed without inspection. Fastest."],["Yellow Lane (SPJK)","Documents are checked by Customs; goods are not opened. May add time."],["Red Lane (SPJM)","Goods are opened and physically inspected. Potential delay of 2-4 days."],["SPPB","Customs release approval (Surat Persetujuan Pengeluaran Barang): the official permission for goods to leave the port."]];
 
 const DAY = 864e5;
-const S = {ships:[], active:null, f:"all", q:"", team:false, modal:"", demo:false, err:false, syncMsg:""};
+const S = {ships:[], sheetRows:[], active:null, itemsOpen:false, f:"all", q:"", team:false, modal:"", demo:false, err:false, sheetStatus:""};
 const $ = id => document.getElementById(id);
 const esc = v => String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const iso = off => new Date(Date.now()+off*DAY).toISOString().slice(0,10);
 const fmt = s => s ? new Date(s+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "Not set";
 const fmtT = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+const normKey = v => String(v||"").trim().toLowerCase();
 
-/* ---- item helpers ---- */
-function getItems(s){
+function getSheetUrl(){
+ return (CONFIG.GOOGLE_SHEET_API_URL || localStorage.getItem("tnp_sheet_url") || "").trim();
+}
+
+/* ---- Google Sheet item matching ---- */
+function getItemsForShipment(s){
+ const poKey = normKey(s.po);
+ const shpKey = normKey(s.nomor);
+ const matched = S.sheetRows.filter(r => {
+  const rPo = normKey(r.po);
+  const rShp = normKey(r.nomor);
+  return (poKey && poKey !== "-" && rPo === poKey) || (shpKey && shpKey !== "-" && rShp === shpKey);
+ });
+ if(matched.length) return matched;
  if(Array.isArray(s.items) && s.items.length) return s.items;
- if(s.barang || s.qty) return [{sku:s.sku||"-", name:s.barang||"-", qty:s.qty||"-"}];
+ if(s.barang || s.qty) return [{sku:"-", name:s.barang||"-", qty:s.qty||"-"}];
  return [];
 }
+
 function itemHeadline(s){
- const items = getItems(s);
+ const items = getItemsForShipment(s);
  if(!items.length) return {title: s.barang || s.nomor || "Untitled Shipment", subQty: s.qty || ""};
- if(items.length === 1) return {title: items[0].name || s.barang || s.nomor, subQty: items[0].qty || ""};
+ if(items.length === 1) return {title: items[0].name || s.barang || s.nomor, subQty: items[0].qty || s.qty || ""};
  return {title: `${items[0].name} (+${items.length - 1} more items)`, subQty: `${items.length} SKUs`};
 }
 
@@ -125,7 +141,7 @@ const match = (s,f) => ({
  kendala:bad(s)&&cur(s)<6, siap:cat(s)==="siap"||cat(s)==="selesai", minggu:wk(s), selesai:cur(s)===6&&mon(s)
 }[f]);
 const hay = s => {
- const itemStr = getItems(s).map(i=>`${i.sku} ${i.name} ${i.qty}`).join(" ");
+ const itemStr = getItemsForShipment(s).map(i=>`${i.sku} ${i.name} ${i.qty}`).join(" ");
  return [s.barang, itemStr, s.po, s.supplier, s.kontainer, s.nomor, s.bl].join(" ").toLowerCase();
 };
 const visible = () => S.ships.filter(s=>match(s,S.f) && hay(s).includes(S.q))
@@ -134,7 +150,6 @@ const visible = () => S.ships.filter(s=>match(s,S.f) && hay(s).includes(S.q))
 function normalize(raw,id){
  const s = JSON.parse(JSON.stringify(raw||{}));
  s.id = id; s.steps = s.steps||{}; s.notes = s.notes||[];
- s.items = getItems(s);
  ALL.forEach(k=>{ if(!s.steps[k]) s.steps[k] = {done:false, needed:true}; });
  return s;
 }
@@ -160,47 +175,23 @@ function DEMO(){
  ];
 }
 
-/* ---- storage (Firebase + Google Sheets Sync) ---- */
+/* ---- storage (Firebase + Google Sheets Read) ---- */
 const base = (CONFIG.FIREBASE_URL||"").replace(/\/+$/,"");
 const remote = !!base;
-const sheetUrl = (CONFIG.GOOGLE_SHEET_WEBHOOK_URL||"").trim();
 const saveLocal = () => { try{ localStorage.setItem("shipments", JSON.stringify(S.ships.filter(x=>!x.demo))); }catch(e){} };
 
-function setSyncStatus(msg){
- S.syncMsg = msg;
- const el = $("syncBadge");
- if(!el) return;
- if(msg){ el.textContent = msg; el.classList.remove("hidden"); }
- else el.classList.add("hidden");
-}
-
-async function syncToSheet(s, action="upsert"){
- if(!sheetUrl || s.demo || !S.team) return;
- setSyncStatus("Syncing to Google Sheet...");
+async function fetchSheetItems(){
+ const url = getSheetUrl();
+ if(!url){ S.sheetStatus = ""; return; }
  try{
-  const payload = {
-   action,
-   id: s.id,
-   nomor: s.nomor || "",
-   po: s.po || "",
-   supplier: s.supplier || "",
-   kontainer: s.kontainer || "",
-   etaGudang: s.etaGudang || "",
-   statusText: status(s).t,
-   barang: s.barang || "",
-   qty: s.qty || "",
-   items: getItems(s)
-  };
-  await fetch(sheetUrl, {
-   method: "POST",
-   mode: "no-cors",
-   headers: {"Content-Type": "text/plain;charset=utf-8"},
-   body: JSON.stringify(payload)
-  });
-  setSyncStatus("Synced to Sheet ✓");
-  setTimeout(()=>setSyncStatus(""), 3000);
+  const res = await fetch(url);
+  const rows = await res.json();
+  if(Array.isArray(rows)){
+   S.sheetRows = rows;
+   S.sheetStatus = `Sheet Connected (${rows.length} items)`;
+  }
  }catch(e){
-  setSyncStatus("Sheet sync failed");
+  S.sheetStatus = "Sheet Sync Error";
  }
 }
 
@@ -213,26 +204,20 @@ async function loadAll(){
 }
 async function save(s){
  if(s.demo || !S.team) return;
- // Keep legacy barang & qty fields updated from the first item for backward compatibility
- const items = getItems(s);
- if(items.length){ s.barang = items[0].name; s.qty = items[0].qty; }
  try{ if(remote) await fetch(base+"/shipments/"+s.id+".json",{method:"PUT",body:JSON.stringify(s)}); else saveLocal(); }catch(e){}
- syncToSheet(s, "upsert");
 }
 async function removeShip(id){
- const target = S.ships.find(s=>s.id===id);
  S.ships = S.ships.filter(s=>s.id!==id);
  try{ if(remote) await fetch(base+"/shipments/"+id+".json",{method:"DELETE"}); else saveLocal(); }catch(e){}
- if(target) syncToSheet(target, "delete");
 }
 async function refresh(){
  const ae = document.activeElement;
  if(ae && ae.closest && ae.closest("#detail,#modal")) return;
- const d = await loadAll();
+ const [d] = await Promise.all([loadAll(), fetchSheetItems()]);
  if(d===null){ if(!S.ships.length){ S.ships = DEMO(); S.demo = true; S.err = true; } }
  else if(d.length){ S.ships = d; S.demo = false; S.err = false; }
  else if(!S.ships.some(x=>!x.demo)){ S.ships = DEMO(); S.demo = true; S.err = false; }
- if(S.active && !S.ships.some(x=>x.id===S.active)){ S.active = null; }
+ if(S.active && !S.ships.some(x=>x.id===S.active)){ S.active = null; S.itemsOpen = false; }
  draw();
 }
 
@@ -242,8 +227,8 @@ function bar(s){
  return `<div class="flex gap-1">${p.slice(0,5).map((x,i)=>`<div class="h-2 flex-1 rounded-full ${x.ok?"bg-emerald-500":i===c?(bad(s)?"bg-rose-400":i>=2?"bg-amber-400":"bg-blue-400"):"bg-slate-200"}"></div>`).join("")}</div>`;
 }
 function card(s){
- const st = status(s), isSel = s.id===S.active, hd = itemHeadline(s), items = getItems(s);
- const skuTags = items.slice(0,2).map(it=>`<span class="inline-block bg-slate-100 text-slate-600 text-[11px] px-1.5 py-0.5 rounded font-mono">${esc(it.sku||"-")}</span>`).join(" ");
+ const st = status(s), isSel = s.id===S.active, hd = itemHeadline(s), items = getItemsForShipment(s);
+ const skuTags = items.filter(it=>it.sku && it.sku!=="-").slice(0,2).map(it=>`<span class="inline-block bg-slate-100 text-slate-600 text-[11px] px-1.5 py-0.5 rounded font-mono">${esc(it.sku)}</span>`).join(" ");
  return `<button data-act="sel" data-id="${s.id}" class="w-full text-left bg-white rounded-xl border p-3.5 transition hover:shadow-md hover:border-blue-300 flex flex-col justify-between ${isSel?"ring-2 ring-blue-500 border-blue-500":""}">
   <div>
    <div class="flex justify-between gap-2"><div class="font-semibold text-slate-900">${esc(hd.title)}</div><div class="text-xs text-slate-500 whitespace-nowrap">${esc(hd.subQty)}</div></div>
@@ -263,51 +248,49 @@ function card(s){
  </button>`;
 }
 function detail(s){
- const E = S.team, st = status(s), c = cur(s), p = prog(s), hd = itemHeadline(s), items = getItems(s);
+ const E = S.team, st = status(s), c = cur(s), p = prog(s), hd = itemHeadline(s), items = getItemsForShipment(s);
  const ident = [["Container No.",s.kontainer],["BL No.",s.bl],["Shipment No.",s.nomor],["Origin Port",s.portAsal],["Destination Port",s.port],["Incoterms",s.incoterms]]
   .map(([k,v])=>`<div><div class="text-xs text-slate-500">${k}</div><div class="font-medium">${esc(v||"-")}</div></div>`).join("");
  
- const itemsTable = `
+ /* Collapsible Product Details & QTY Box */
+ const itemsBox = `
   <div class="rounded-lg border overflow-hidden">
-   <div class="bg-slate-50 px-3 py-2 border-b flex items-center justify-between">
-    <span class="font-semibold text-xs text-slate-700 flex items-center gap-1.5"><i data-lucide="boxes" class="w-4 h-4 text-blue-600"></i>Shipment Contents (SKU, Product Name &amp; QTY)</span>
-    ${E && sheetUrl ? `<button data-act="syncNow" class="text-[11px] px-2 py-0.5 rounded border bg-white hover:bg-slate-50 text-emerald-700 border-emerald-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i>Sync Sheet</button>` : ""}
-   </div>
-   <div class="overflow-x-auto">
+   <button type="button" data-act="toggleItems" class="w-full bg-slate-50 hover:bg-slate-100 transition px-3 py-2.5 flex items-center justify-between text-left">
+    <span class="font-semibold text-xs text-slate-700 flex items-center gap-1.5">
+     <i data-lucide="boxes" class="w-4 h-4 text-blue-600"></i>
+     Product Details &amp; QTY
+     <span class="ml-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-medium">${items.length} item(s)</span>
+    </span>
+    <span class="text-xs text-blue-600 font-medium flex items-center gap-1">
+     ${S.itemsOpen ? "Hide" : "Show"}
+     <i data-lucide="${S.itemsOpen ? "chevron-up" : "chevron-down"}" class="w-4 h-4"></i>
+    </span>
+   </button>
+   ${S.itemsOpen ? `
+   <div class="overflow-x-auto border-t">
     <table class="w-full text-left border-collapse">
      <thead>
       <tr class="border-b bg-slate-50/50 text-[11px] text-slate-500 uppercase">
        <th class="py-2 px-3">SKU</th>
        <th class="py-2 px-3">Product Name</th>
        <th class="py-2 px-3">QTY</th>
-       ${E ? `<th class="py-2 px-2 w-8"></th>` : ""}
       </tr>
      </thead>
      <tbody class="divide-y text-xs">
-      ${items.length ? items.map((it, idx) => E ? `
-       <tr>
-        <td class="p-1.5"><input data-item-idx="${idx}" data-item-k="sku" value="${esc(it.sku||"")}" placeholder="SKU" class="w-full border rounded px-2 py-1 font-mono"></td>
-        <td class="p-1.5"><input data-item-idx="${idx}" data-item-k="name" value="${esc(it.name||"")}" placeholder="Product Name" class="w-full border rounded px-2 py-1"></td>
-        <td class="p-1.5"><input data-item-idx="${idx}" data-item-k="qty" value="${esc(it.qty||"")}" placeholder="QTY" class="w-full border rounded px-2 py-1"></td>
-        <td class="p-1.5 text-center"><button data-act="delItem" data-idx="${idx}" title="Remove item" class="text-slate-400 hover:text-rose-600 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></td>
-       </tr>` : `
+      ${items.length ? items.map(it => `
        <tr class="hover:bg-slate-50">
         <td class="py-2 px-3 font-mono text-slate-600 whitespace-nowrap">${esc(it.sku||"-")}</td>
         <td class="py-2 px-3 font-medium text-slate-800">${esc(it.name||"-")}</td>
-        <td class="py-2 px-3 text-slate-700 whitespace-nowrap">${esc(it.qty||"-")}</td>
-       </tr>`).join("") : `<tr><td colspan="${E?4:3}" class="py-3 px-3 text-center text-slate-400 text-xs">No items listed.</td></tr>`}
+        <td class="py-2 px-3 text-slate-700 whitespace-nowrap font-medium">${esc(it.qty||"-")}</td>
+       </tr>`).join("") : `<tr><td colspan="3" class="py-3 px-3 text-center text-slate-400 text-xs">No items found in Google Sheet for PO <b>${esc(s.po||"-")}</b> / Shipment <b>${esc(s.nomor||"-")}</b>.</td></tr>`}
      </tbody>
     </table>
-   </div>
-   ${E ? `<div class="p-2 bg-slate-50 border-t flex flex-wrap gap-2 items-center">
-    <input id="addSku" placeholder="SKU" class="border rounded px-2 py-1 text-xs w-28 bg-white font-mono">
-    <input id="addName" placeholder="Product Name *" class="border rounded px-2 py-1 text-xs flex-1 min-w-[140px] bg-white">
-    <input id="addQty" placeholder="QTY (e.g. 500 pcs)" class="border rounded px-2 py-1 text-xs w-28 bg-white">
-    <button data-act="addItemDetail" class="px-2.5 py-1 rounded bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">+ Add Item</button>
    </div>` : ""}
   </div>`;
 
  const ctl = E ? `<div class="rounded-lg border border-dashed p-3 grid sm:grid-cols-2 gap-3">
+  <label class="text-xs text-slate-500">PO No. (Links to Google Sheet)<input data-f="po" value="${esc(s.po||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
+  <label class="text-xs text-slate-500">Shipment No. (Links to Google Sheet)<input data-f="nomor" value="${esc(s.nomor||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
   <label class="text-xs text-slate-500">Customs Lane<select data-f="jalur" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800 bg-white">${[["","None yet"],["hijau","Green Lane"],["kuning","Yellow Lane (SPJK)"],["merah","Red Lane (SPJM)"]].map(([v,l])=>`<option value="${v}" ${s.jalur===v?"selected":""}>${l}</option>`).join("")}</select></label>
   <label class="text-xs text-slate-500">Issue (leave empty if none)<input data-f="kendala" value="${esc(s.kendala||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
   <label class="text-xs text-slate-500">ETD (Departure Date)<input type="date" data-f="etd" value="${esc(s.etd||"")}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>
@@ -339,7 +322,7 @@ function detail(s){
   <div class="rounded-lg border p-3 ${TONE[st.tone]}"><div class="font-semibold">${st.t}</div><div class="text-xs">Technical term: ${st.b}</div>${s.kendala?`<div class="mt-1">Issue: ${esc(s.kendala)}</div>`:""}</div>
   <div class="grid grid-cols-3 gap-3"><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">ETD</div><div class="font-semibold">${fmt(s.etd)}</div></div><div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">Port ETA</div><div class="font-semibold">${fmt(s.etaPort)}</div></div>
   <div class="rounded-lg bg-indigo-50 p-3"><div class="text-xs text-indigo-600">Estimated Arrival at PT TNP Warehouse</div><div class="text-base font-bold text-indigo-700">${fmt(s.etaGudang)}</div></div></div>
-  ${itemsTable}
+  ${itemsBox}
   <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${ident}</div>${ctl}
   <div><h3 class="font-semibold mb-2">Shipment Process</h3>${tl}</div>
   <div><h3 class="font-semibold mb-2">Updates from the Shipping Team</h3><div class="space-y-2 mb-3">${notes}</div>${form}</div></div>`;
@@ -350,31 +333,32 @@ function modal(){
   `<div class="flex flex-wrap items-center gap-1 text-xs mb-4">${["Document Preparation","Vessel Departed","Arrived at Port","Customs Processing","SPPB Issued","Arrived at PT TNP Warehouse"].map((n,i)=>`${i?'<i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>':""}<span class="px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">${i+1}. ${n}</span>`).join("")}</div>
   <div class="space-y-2">${GLOSS.map(([k,v])=>`<div class="rounded-lg bg-slate-50 p-2"><b>${k}</b><div class="text-slate-600">${v}</div></div>`).join("")}</div>`);
  if(S.modal==="add") return wrap("Add New Shipment",
-  `<div class="space-y-4">
-   <div class="rounded-lg border p-3 bg-slate-50/70">
-    <div class="flex items-center justify-between mb-2">
-     <span class="text-xs font-semibold text-slate-700">Shipment Items (SKU, Product Name &amp; QTY) *</span>
-     <button type="button" data-act="addModalRow" class="text-xs text-blue-600 hover:underline font-medium">+ Add Another Item</button>
-    </div>
-    <div id="modalItems" class="space-y-2">
-     <div class="grid grid-cols-12 gap-2 modal-item-row">
-      <input placeholder="SKU" class="col-span-3 border rounded-lg px-2 py-1.5 text-xs bg-white font-mono m-sku">
-      <input placeholder="Product Name *" class="col-span-6 border rounded-lg px-2 py-1.5 text-xs bg-white m-name">
-      <input placeholder="QTY (e.g. 500 pcs)" class="col-span-3 border rounded-lg px-2 py-1.5 text-xs bg-white m-qty">
-     </div>
-    </div>
-   </div>
-   <div class="grid sm:grid-cols-2 gap-3">${FIELDS.map(([k,l,t])=>`<label class="text-xs text-slate-500">${l}<input id="f_${k}" type="${t||"text"}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>`).join("")}</div>
-   <button data-act="submit" class="w-full py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">Save Shipment</button>
-  </div>`);
+  `<div class="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 px-3 py-2 text-xs mb-3">
+   <b>Tip:</b> Enter the exact <b>PO No.</b> or <b>Shipment No.</b> matching your Google Sheet so SKU, Product Name &amp; QTY load automatically.
+  </div>
+  <div class="grid sm:grid-cols-2 gap-3">${FIELDS.map(([k,l,t])=>`<label class="text-xs text-slate-500">${l}<input id="f_${k}" type="${t||"text"}" class="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm text-slate-800"></label>`).join("")}</div>
+  <button data-act="submit" class="mt-4 w-full py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">Save Shipment</button>`);
+ if(S.modal==="sheetCfg") return wrap("Google Sheet Web App URL",
+  `<p class="text-xs text-slate-600 mb-3">Paste your Google Apps Script Web App URL (<code>https://script.google.com/macros/s/.../exec</code>) below to test or save it in this browser. To make it permanent for all employees, also paste it into <code>CONFIG.GOOGLE_SHEET_API_URL</code> in <code>index.html</code>.</p>
+  <input id="sheetUrlIn" value="${esc(getSheetUrl())}" placeholder="https://script.google.com/macros/s/..." class="w-full border rounded-lg px-3 py-2 text-sm mb-3">
+  <button data-act="saveSheetUrl" class="w-full py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">Save &amp; Sync Now</button>`);
  return "";
 }
 function draw(){
+ const sheetUrl = getSheetUrl();
  $("demo").innerHTML = S.demo ? `<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">This is <b>sample data</b>${S.err?" (database not connected)":""}. It disappears automatically once the first shipment is added.</div>` : "";
  $("modeBadge").className = "text-xs px-2 py-1 rounded-full border " + (S.team ? TONE.emerald : TONE.slate);
  $("modeBadge").textContent = S.team ? "Shipping Team Mode" : "View-Only Mode (All Employees)";
  $("btnTeam").innerHTML = `<i data-lucide="${S.team?"lock":"lock-open"}" class="w-4 h-4"></i>${S.team?"Exit Shipping Team Mode":"Shipping Team Mode"}`;
  $("btnAdd").classList.toggle("hidden", !S.team);
+ $("btnSheetCfg").classList.toggle("hidden", !S.team);
+ $("btnSyncSheet").classList.toggle("hidden", !sheetUrl);
+ if(S.sheetStatus && sheetUrl){
+  $("sheetBadge").textContent = S.sheetStatus;
+  $("sheetBadge").classList.remove("hidden");
+ } else {
+  $("sheetBadge").classList.add("hidden");
+ }
  const K = [["aktif","Active Shipments","package","blue"],["minggu","Arriving at Warehouse This Week","warehouse","indigo"],["kendala","Needs Attention / Delayed","triangle-alert","rose"],["selesai","Completed This Month","circle-check","emerald"]];
  $("kpi").innerHTML = K.map(([f,l,ic,c])=>`<button data-act="flt" data-f="${f}" class="text-left bg-white rounded-xl border p-3 flex items-center gap-3 hover:shadow-sm ${S.f===f?"ring-2 ring-slate-700":""}"><div class="p-2 rounded-lg ${KCOL[c]}"><i data-lucide="${ic}" class="w-5 h-5"></i></div><div><div class="text-2xl font-bold">${S.ships.filter(s=>match(s,f)).length}</div><div class="text-xs text-slate-500">${l}</div></div></button>`).join("");
  $("tabs").innerHTML = [["all","All"],["jalan","In Transit"],["bc","Customs Processing"],["kendala","Delayed (Red Lane)"],["siap","Ready / At Warehouse"]]
@@ -405,11 +389,23 @@ document.addEventListener("click", e=>{
  const el = e.target.closest("[data-act]"); if(!el) return;
  const a = el.dataset.act, s = act();
  if(a==="sel"){
-  S.active = (S.active === el.dataset.id) ? null : el.dataset.id;
+  const isClosing = (S.active === el.dataset.id);
+  S.active = isClosing ? null : el.dataset.id;
+  S.itemsOpen = false; // Reset product details to closed when switching shipments
   draw();
   if(S.active && innerWidth<1024) $("detail").scrollIntoView({behavior:"smooth"});
  }
- else if(a==="closeDetail"){ S.active = null; draw(); }
+ else if(a==="closeDetail"){ S.active = null; S.itemsOpen = false; draw(); }
+ else if(a==="toggleItems"){ S.itemsOpen = !S.itemsOpen; draw(); }
+ else if(a==="refreshSheet"){ S.sheetStatus = "Refreshing..."; draw(); fetchSheetItems().then(draw); }
+ else if(a==="sheetCfg"){ S.modal = "sheetCfg"; draw(); }
+ else if(a==="saveSheetUrl"){
+  const u = $("sheetUrlIn").value.trim();
+  localStorage.setItem("tnp_sheet_url", u);
+  S.modal = ""; S.sheetStatus = u ? "Connecting..." : "";
+  draw();
+  if(u) fetchSheetItems().then(draw);
+ }
  else if(a==="flt"){ S.f = el.dataset.f; draw(); }
  else if(a==="guide"){ S.modal = "guide"; draw(); }
  else if(a==="add"){ S.modal = "add"; draw(); }
@@ -419,83 +415,29 @@ document.addEventListener("click", e=>{
   else{ if(CONFIG.EDIT_PASSCODE && prompt("Enter Shipping Team PIN:")!==CONFIG.EDIT_PASSCODE){ alert("Incorrect PIN."); return; } S.team = true; }
   draw();
  }
- else if(a==="addModalRow"){
-  const box = $("modalItems");
-  if(!box) return;
-  const row = document.createElement("div");
-  row.className = "grid grid-cols-12 gap-2 modal-item-row";
-  row.innerHTML = `<input placeholder="SKU" class="col-span-3 border rounded-lg px-2 py-1.5 text-xs bg-white font-mono m-sku">
-   <input placeholder="Product Name *" class="col-span-5 border rounded-lg px-2 py-1.5 text-xs bg-white m-name">
-   <input placeholder="QTY" class="col-span-3 border rounded-lg px-2 py-1.5 text-xs bg-white m-qty">
-   <button type="button" onclick="this.parentElement.remove()" class="col-span-1 text-slate-400 hover:text-rose-600 flex items-center justify-center">×</button>`;
-  box.appendChild(row);
- }
- else if(a==="addItemDetail" && s && S.team){
-  const sku = $("addSku").value.trim(), name = $("addName").value.trim(), qty = $("addQty").value.trim();
-  if(!name){ alert("Product Name is required."); return; }
-  s.items = getItems(s);
-  s.items.push({sku, name, qty});
-  save(s); draw();
- }
- else if(a==="delItem" && s && S.team){
-  const idx = Number(el.dataset.idx);
-  s.items = getItems(s);
-  s.items.splice(idx, 1);
-  save(s); draw();
- }
- else if(a==="syncNow" && s && S.team){
-  syncToSheet(s, "upsert");
- }
  else if(a==="tg" && s && S.team){ const m = s.steps[el.dataset.k]; m.done = !m.done; if(el.dataset.k==="gudang"){ if(m.done) s.gudangAt = new Date().toISOString(); else delete s.gudangAt; } save(s); draw(); }
  else if(a==="nd" && s && S.team){ const m = s.steps[el.dataset.k]; m.needed = !m.needed; if(!m.needed) m.done = false; save(s); draw(); }
  else if(a==="note" && s && S.team){ const t = $("noteIn").value.trim(); if(!t) return; s.notes.push({t:Date.now(), text:t}); save(s); draw(); }
  else if(a==="del" && s && S.team){ if(confirm("Delete this shipment along with all its progress and notes?")){ removeShip(s.id).then(()=>{ S.active = null; refresh(); }); } }
  else if(a==="submit"){
-  const rows = [...document.querySelectorAll(".modal-item-row")];
-  const items = rows.map(r=>({
-   sku: r.querySelector(".m-sku").value.trim(),
-   name: r.querySelector(".m-name").value.trim(),
-   qty: r.querySelector(".m-qty").value.trim()
-  })).filter(it=>it.sku || it.name || it.qty);
-  if(!items.length || !items[0].name){ alert("At least one Product Name is required."); return; }
-
   const v = {}; FIELDS.forEach(([k])=>v[k] = $("f_"+k).value.trim());
+  if(!v.barang){ alert("Item summary / title is required."); return; }
   const steps = {}; ALL.forEach(k=>steps[k] = {done:false, needed:true});
-  const sh = {
-   ...v,
-   barang: items[0].name,
-   qty: items[0].qty,
-   items,
-   id:"ship_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),
-   steps, jalur:"", kendala:"", notes:[], createdAt:Date.now()
-  };
-  S.ships = S.ships.filter(x=>!x.demo); S.demo = false; S.ships.push(sh); S.active = sh.id; S.modal = "";
+  const sh = {...v, id:"ship_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), steps, jalur:"", kendala:"", notes:[], createdAt:Date.now()};
+  S.ships = S.ships.filter(x=>!x.demo); S.demo = false; S.ships.push(sh); S.active = sh.id; S.itemsOpen = false; S.modal = "";
   save(sh); draw();
  }
 });
 document.addEventListener("change", e=>{
- const s = act();
- if(!s || !S.team) return;
- // Inline item edit in detail table
- if(e.target.dataset && e.target.dataset.itemIdx !== undefined){
-  const idx = Number(e.target.dataset.itemIdx);
-  const key = e.target.dataset.itemK;
-  s.items = getItems(s);
-  if(s.items[idx]){
-   s.items[idx][key] = e.target.value.trim();
-   save(s); draw();
-  }
-  return;
- }
- const f = e.target.dataset && e.target.dataset.f;
- if(!f || e.target.closest("#kpi,#tabs")) return;
+ const f = e.target.dataset && e.target.dataset.f, s = act();
+ if(!f || !s || !S.team || e.target.closest("#kpi,#tabs")) return;
  s[f] = e.target.value; save(s); draw();
 });
 $("q").addEventListener("input", e=>{ S.q = e.target.value.toLowerCase().trim(); draw(); });
 
 draw();
 refresh();
-if(remote) setInterval(()=>{ if(!document.hidden) refresh(); }, 15000);
+setInterval(()=>{ if(!document.hidden && (remote || getSheetUrl())) refresh(); }, 15000);
 </script>
 </body>
 </html>
