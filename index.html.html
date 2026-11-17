@@ -97,11 +97,20 @@ function getItemsForShipment(s){
  return [];
 }
 
+function totalQty(items) {
+ let sum = 0, hasNum = false;
+ items.forEach(it => {
+  const match = String(it.qty || "").replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+  if (match) { sum += parseFloat(match[0]); hasNum = true; }
+ });
+ return hasNum ? sum.toLocaleString("en-US") : "-";
+}
+
 function itemHeadline(s){
  const items = getItemsForShipment(s);
  if(!items.length) return {title: s.barang || s.nomor || "Untitled Shipment", subQty: s.qty || ""};
  if(items.length === 1) return {title: items[0].name || s.barang || s.nomor, subQty: items[0].qty || s.qty || ""};
- return {title: `${items[0].name} (+${items.length - 1} more items)`, subQty: `${items.length} SKUs`};
+ return {title: `${items[0].name} (+${items.length - 1} more items)`, subQty: `${items.length} SKUs • Total: ${totalQty(items)}`};
 }
 
 /* ---- status logic ---- */
@@ -283,7 +292,13 @@ function detail(s){
         <td class="py-2 px-3 font-medium text-slate-800">${esc(it.name||"-")}</td>
         <td class="py-2 px-3 text-slate-700 whitespace-nowrap font-medium">${esc(it.qty||"-")}</td>
        </tr>`).join("") : `<tr><td colspan="3" class="py-3 px-3 text-center text-slate-400 text-xs">No items found in Google Sheet for PO <b>${esc(s.po||"-")}</b> / Shipment <b>${esc(s.nomor||"-")}</b>.</td></tr>`}
-     </tbody>
+    </tbody>
+     <tfoot>
+      <tr class="border-t-2 bg-slate-50 font-semibold text-xs text-slate-800">
+       <td colspan="2" class="py-2 px-3 text-right">Total QTY (This PO / Shipment):</td>
+       <td class="py-2 px-3 text-blue-700 whitespace-nowrap">${totalQty(items)}</td>
+      </tr>
+     </tfoot>
     </table>
    </div>` : ""}
   </div>`;
