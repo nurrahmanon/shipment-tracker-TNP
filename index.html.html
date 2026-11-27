@@ -49,7 +49,7 @@
    EDIT_PASSCODE       : PIN for Shipping Team Mode. */
 const CONFIG = {
  FIREBASE_URL: "https://tracker-shipment-tnp-default-rtdb.asia-southeast1.firebasedatabase.app/",
- GOOGLE_SHEET_API_URL: "https://script.google.com/macros/s/AKfycbzL-9XVw-gsido0qqYsiGpPvZf2tJ152YpZFSem37fsrwN1b1FAcFebA93NN5UE0omc/exec",
+ GOOGLE_SHEET_API_URL: "https://script.google.com/macros/s/AKfycbyncKi6vAdnnkurFcDK9FQocKOzZmwAE621Mq-zE2dHAw2twQkZ8yBp5bUXkpXiVi7viw/exec",
  EDIT_PASSCODE: "TNPSHIPPING"
 };
 
@@ -203,7 +203,6 @@ async function fetchSheetItems(){
   S.sheetStatus = "Sheet Sync Error";
  }
 }
-
 async function loadAll(){
  try{
   if(remote){ const o = await (await fetch(base+"/shipments.json")).json(); return o ? Object.keys(o).map(k=>normalize(o[k],k)) : []; }
